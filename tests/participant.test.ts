@@ -29,6 +29,7 @@ import { ROLES } from "../src/lib/rbac/roles";
 import { getUserContext, hasPermission } from "../src/lib/rbac/service";
 import { createSessionToken } from "../src/lib/rbac/token";
 import { checkRouteAuthorization } from "../src/lib/rbac/routes";
+import { generateParticipantQr } from "../src/lib/qr/service";
 
 // API Route Handlers
 import { GET as getParticipantOverview } from "../src/app/api/participant/route";
@@ -276,26 +277,71 @@ async function runTests() {
   );
 
   // -------------------------------------------------------------
-  // TEST 14: QR security works (opaque token, zero PII)
+  // TEST 14: QR pass is withheld until verification, and opaque when verified
   // -------------------------------------------------------------
-  const qrReq = new NextRequest("http://localhost:3000/api/participant/qr", {
+  await prisma.qrPass.deleteMany({ where: { participantId: "p1-ananya-sharma" } });
+  await prisma.document.deleteMany({ where: { participantId: "p1-ananya-sharma" } });
+  await prisma.participant.update({
+    where: { id: "p1-ananya-sharma" },
+    data: { status: "PENDING", qrCode: null },
+  });
+
+  const qrReqUnverified = new NextRequest("http://localhost:3000/api/participant/qr", {
     headers: authHeaders,
   });
-  const qrRes = await getParticipantQR(qrReq);
-  const qrData = await qrRes.json();
+  const qrResUnverified = await getParticipantQR(qrReqUnverified);
+  const qrDataUnverified = await qrResUnverified.json();
+
+  assert(
+    qrDataUnverified.success === true && qrDataUnverified.pass === null && qrDataUnverified.isVerified === false,
+    "14: QR pass withheld until details and documents are uploaded and verified",
+    `isVerified: ${qrDataUnverified.isVerified}`
+  );
+
+  // Now create a verified document and verify QR pass generation
+  const testDoc = await prisma.document.create({
+    data: {
+      participantId: "p1-ananya-sharma",
+      type: "AADHAAR",
+      fileName: "aadhaar_test.pdf",
+      filePath: "/test/aadhaar_test.pdf",
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      status: "VERIFIED",
+    },
+  });
+  await prisma.participant.update({
+    where: { id: "p1-ananya-sharma" },
+    data: { status: "APPROVED" },
+  });
+  await generateParticipantQr("p1-ananya-sharma", "admin@szwbt2026.edu");
+
+  const qrReqVerified = new NextRequest("http://localhost:3000/api/participant/qr", {
+    headers: authHeaders,
+  });
+  const qrResVerified = await getParticipantQR(qrReqVerified);
+  const qrDataVerified = await qrResVerified.json();
 
   const isTokenOpaque =
-    qrData.success === true &&
-    typeof qrData.pass.qrToken === "string" &&
-    qrData.pass.qrToken.startsWith("sz26_qr_pt_") &&
-    !qrData.pass.qrToken.includes("@") &&
-    !qrData.pass.qrToken.includes("+91");
+    qrDataVerified.success === true &&
+    typeof qrDataVerified.pass?.qrToken === "string" &&
+    qrDataVerified.pass.qrToken.startsWith("sz26_") &&
+    !qrDataVerified.pass.qrToken.includes("@") &&
+    !qrDataVerified.pass.qrToken.includes("+91");
 
   assert(
     isTokenOpaque,
-    "14: QR security works (opaque token, zero PII encoded)",
-    `qrToken: ${qrData.pass?.qrToken}`
+    "14: QR security works when verified (opaque token, zero PII encoded)",
+    `qrToken: ${qrDataVerified.pass?.qrToken}`
   );
+
+  // Clean up test document and QR pass to restore initial state
+  await prisma.qrPass.deleteMany({ where: { participantId: "p1-ananya-sharma" } });
+  await prisma.document.deleteMany({ where: { id: testDoc.id } });
+  await prisma.participant.update({
+    where: { id: "p1-ananya-sharma" },
+    data: { status: "PENDING", qrCode: null },
+  });
 
   // -------------------------------------------------------------
   // TEST 15: Unauthenticated access is rejected

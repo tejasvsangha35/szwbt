@@ -30,6 +30,7 @@ export const PERMISSIONS = {
   // Accommodation
   ACCOMMODATION_READ: "accommodation:read",
   ACCOMMODATION_ALLOCATE: "accommodation:allocate",
+  ACCOMMODATION_CHECKIN: "accommodation:checkin",
   ACCOMMODATION_MOVE: "accommodation:move",
   ACCOMMODATION_VACATE: "accommodation:vacate",
   ACCOMMODATION_CONFIGURE: "accommodation:configure",
@@ -159,6 +160,7 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   // Accommodation
   { code: PERMISSIONS.ACCOMMODATION_READ, resource: "accommodation", action: "read", description: "View hostel occupancy and bed matrices" },
   { code: PERMISSIONS.ACCOMMODATION_ALLOCATE, resource: "accommodation", action: "allocate", description: "Allocate room beds to athletes and managers" },
+  { code: PERMISSIONS.ACCOMMODATION_CHECKIN, resource: "accommodation", action: "checkin", description: "Record and manage occupant check-in status" },
   { code: PERMISSIONS.ACCOMMODATION_MOVE, resource: "accommodation", action: "move", description: "Transfer athlete between rooms/beds" },
   { code: PERMISSIONS.ACCOMMODATION_VACATE, resource: "accommodation", action: "vacate", description: "Check out and vacate hostel bed" },
   { code: PERMISSIONS.ACCOMMODATION_CONFIGURE, resource: "accommodation", action: "configure", description: "Super Admin configuration of hostels, floors, rooms, and beds" },

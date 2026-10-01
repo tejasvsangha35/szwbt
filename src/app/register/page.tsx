@@ -4,6 +4,8 @@ import React, { useState, useRef, useMemo, useCallback, useEffect } from "react"
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { PortalQrCode } from "@/components/qr/PortalQrCode";
+import { PassQrSvg } from "@/components/qr/PassQrSvg";
+import { compressUploadedFile } from "@/lib/fileCompressor";
 
 import {
   Shield, Camera, Upload, CheckCircle2, Plus, Trash2, RefreshCw,
@@ -14,17 +16,17 @@ import {
   Paperclip, CheckCircle, UserCheck, AlertCircle, BadgeCheck,
   Receipt, FolderCheck, ShieldCheck, Layers, Grid, List,
   Calendar, Bed, Home, DollarSign, CreditCard, ArrowRight, User, Clock, Phone, Mail, FileBadge,
-  Smartphone
+  Smartphone, Lock, GraduationCap, Table
 } from "lucide-react";
 
-// South Zone States for geographical filtering
+// South Zone States for geographical filtering (canonical names)
 const SOUTH_ZONE_STATES = [
-  "Karnataka",
-  "Tamil Nadu",
   "Andhra Pradesh",
-  "Telangana",
+  "Karnataka",
   "Kerala",
-  "Puducherry"
+  "Puducherry",
+  "Tamil Nadu",
+  "Telangana"
 ];
 
 interface InstitutionOption {
@@ -117,12 +119,42 @@ interface CreatedTeamContingent {
   };
 }
 
+function isFloorMatch(roomFloor?: string | null, filterFloor?: string | null): boolean {
+  if (!filterFloor || filterFloor === "ALL") return true;
+  if (!roomFloor) return false;
+
+  const rf = roomFloor.trim().toUpperCase().replace(/\s+/g, " ");
+  const ff = filterFloor.trim().toUpperCase().replace(/\s+/g, " ");
+
+  if (rf === ff) return true;
+
+  // Compare normalized floor numbers (e.g. "FLOOR 02" vs "FLOOR 2" vs "2")
+  const rfNum = rf.replace(/^FLOOR\s*0?/, "");
+  const ffNum = ff.replace(/^FLOOR\s*0?/, "");
+  if (rfNum && ffNum && rfNum === ffNum) return true;
+
+  return false;
+}
+
 export default function RegistrationDeskPage() {
   const staffName = "Registration Desk Officer";
   const deskId = "DESK 01";
 
-  // Top-level Navigation: 1. FULL TEAM REGISTRATION | 2. REGISTERED PARTICIPANTS | 3. ONBOARDED TEAMS | 4. DOCUMENT VERIFICATION
-  const [activeTab, setActiveTab] = useState<"NEW_REG" | "REGISTERED" | "ONBOARDED" | "DOCUMENTS">("NEW_REG");
+  // Top-level Navigation: 1. FULL TEAM REGISTRATION | 2. ONBOARDED TEAMS & PASSES
+  const [activeTab, setActiveTab] = useState<"NEW_REG" | "REGISTERED" | "ONBOARDED">("NEW_REG");
+  const [onboardedViewMode, setOnboardedViewMode] = useState<"TEAMS" | "REGISTRY">("TEAMS");
+  const [teamsDisplayMode, setTeamsDisplayMode] = useState<"TABLE" | "CARDS">("TABLE");
+  const [stateFilter, setStateFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+
+  // Redirect legacy / programmatic "REGISTERED" tab to ONBOARDED tab with registry view
+  useEffect(() => {
+    if (activeTab === "REGISTERED") {
+      setActiveTab("ONBOARDED");
+      setOnboardedViewMode("REGISTRY");
+    }
+  }, [activeTab]);
 
   // ─────────────────────────────────────────────────────────────
   // MASTER DATA: State & University Dependent Lists
@@ -156,8 +188,12 @@ export default function RegistrationDeskPage() {
     { name: "", email: "", mobile: "", photoUrl: null, pdfDataUrl: null },
   ]);
 
-  // Active photo target: "MANAGER" | index (0..4)
   const [activePhotoTarget, setActivePhotoTarget] = useState<"MANAGER" | number | null>(null);
+
+  // File Compression States
+  const [compressingPhotoTarget, setCompressingPhotoTarget] = useState<"MANAGER" | number | null>(null);
+  const [isCompressingManagerPdf, setIsCompressingManagerPdf] = useState<boolean>(false);
+  const [compressingAthletePdfIdx, setCompressingAthletePdfIdx] = useState<number | null>(null);
 
   // ─────────────────────────────────────────────────────────────
   // CAMERA CAPTURE WORKFLOW
@@ -169,7 +205,7 @@ export default function RegistrationDeskPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // ─────────────────────────────────────────────────────────────
-  // ACCOMMODATION ALLOCATION (5 BEDS SQUAD CONTINGENT)
+  // ACCOMMODATION ALLOCATION (5 BEDS SQUAD CONTINGENT + MANAGER BED)
   // ─────────────────────────────────────────────────────────────
   const [wantAccommodation, setWantAccommodation] = useState<boolean>(true);
   const [rooms, setRooms] = useState<HostelRoomOption[]>([]);
@@ -178,6 +214,14 @@ export default function RegistrationDeskPage() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [loadingRooms, setLoadingRooms] = useState<boolean>(false);
   const [isViewAllRoomsOpen, setIsViewAllRoomsOpen] = useState<boolean>(false);
+
+  // Dedicated Team Manager Accommodation State (Vindhya Boys Hostel)
+  const [managerBedId, setManagerBedId] = useState<string | undefined>(undefined);
+  const [managerBedNumber, setManagerBedNumber] = useState<string | undefined>(undefined);
+  const [managerRoomId, setManagerRoomId] = useState<string | undefined>(undefined);
+  const [managerRoomNumber, setManagerRoomNumber] = useState<string | undefined>(undefined);
+  const [managerFloor, setManagerFloor] = useState<string | undefined>(undefined);
+  const [managerHostel, setManagerHostel] = useState<string>("Vindhya Boys Hostel");
 
   // ─────────────────────────────────────────────────────────────
   // PAYMENT & VERIFICATION LEDGER (₹2,500 PER TEAM CONTINGENT TOTAL)
@@ -202,12 +246,17 @@ export default function RegistrationDeskPage() {
   const [loadingParticipants, setLoadingParticipants] = useState<boolean>(false);
   const [searchFilter, setSearchFilter] = useState<string>("");
   const [selectedParticipantForPass, setSelectedParticipantForPass] = useState<ParticipantRecord | null>(null);
-  const [selectedParticipantForQr, setSelectedParticipantForQr] = useState<ParticipantRecord | null>(null);
+  const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null);
+
+  // Direct native system file upload states
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [targetParticipantForUpload, setTargetParticipantForUpload] = useState<ParticipantRecord | null>(null);
 
   // Selected participant for document upload modal
   const [docUploadParticipant, setDocUploadParticipant] = useState<ParticipantRecord | null>(null);
-  const [selectedDocType, setSelectedDocType] = useState<string>("UNIVERSITY_ID");
+  const [selectedDocType, setSelectedDocType] = useState<string>("COMBINED_PDF");
   const [uploadingDoc, setUploadingDoc] = useState<boolean>(false);
+  const [autoVerifyDossier, setAutoVerifyDossier] = useState<boolean>(false);
 
   // ─────────────────────────────────────────────────────────────
   // FIND DETAILS MODAL
@@ -231,7 +280,7 @@ export default function RegistrationDeskPage() {
         const queryParams = new URLSearchParams();
         if (selectedState) queryParams.set("state", selectedState);
         queryParams.set("status", "ACTIVE");
-        queryParams.set("limit", "200");
+        queryParams.set("limit", "500");
 
         const res = await fetch(`/api/institutions?${queryParams.toString()}`);
         const data = await res.json();
@@ -261,12 +310,28 @@ export default function RegistrationDeskPage() {
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch("/api/accommodation/rooms");
+        const res = await fetch("/api/accommodation/rooms?hostelId=ALL");
         const data = await res.json();
         if (data.success && Array.isArray(data.rooms)) {
           setRooms(data.rooms);
           if (data.rooms.length > 0 && !selectedRoomId) {
             setSelectedRoomId(data.rooms[0].id);
+          }
+          // Pre-allocate first available bed in Vindhya Boys Hostel for Manager if not yet set
+          const vindhyaRooms = data.rooms.filter((r: HostelRoomOption) =>
+            r.hostelId === "VINDHYA" || r.hostelName?.toUpperCase().includes("VINDHYA")
+          );
+          for (const vRoom of vindhyaRooms) {
+            const availBed = vRoom.beds?.find((b: any) => b.status === "AVAILABLE");
+            if (availBed) {
+              setManagerBedId(availBed.id);
+              setManagerBedNumber(availBed.bedNumber);
+              setManagerRoomId(vRoom.id);
+              setManagerRoomNumber(vRoom.roomNumber);
+              setManagerFloor(vRoom.floorNumber || "FLOOR 01");
+              setManagerHostel(vRoom.hostelName || "Vindhya Boys Hostel");
+              break;
+            }
           }
         }
       } catch (err) {
@@ -278,14 +343,66 @@ export default function RegistrationDeskPage() {
     fetchRooms();
   }, []);
 
+  // Dynamically compute distinct available floors for the currently selected hostel
+  const availableFloors = useMemo(() => {
+    const hostelRooms = rooms.filter((r) => {
+      if (!selectedHostel) return true;
+      return (
+        r.hostelId === selectedHostel ||
+        r.hostelName?.toUpperCase().includes(selectedHostel.toUpperCase())
+      );
+    });
+
+    const distinctFloors = Array.from(
+      new Set(hostelRooms.map((r) => r.floorNumber).filter(Boolean))
+    ) as string[];
+
+    return distinctFloors.sort((a, b) => {
+      const aUpper = a.toUpperCase();
+      const bUpper = b.toUpperCase();
+      if (aUpper.includes("GROUND")) return -1;
+      if (bUpper.includes("GROUND")) return 1;
+      return aUpper.localeCompare(bUpper, undefined, { numeric: true });
+    });
+  }, [rooms, selectedHostel]);
+
   // Filtered rooms for selected hostel & floor
   const filteredRooms = useMemo(() => {
     return rooms.filter((r) => {
-      const matchHostel = !selectedHostel || r.hostelId === selectedHostel || r.hostelName?.toUpperCase().includes(selectedHostel);
-      const matchFloor = !selectedFloor || r.floorNumber === selectedFloor;
+      const matchHostel =
+        !selectedHostel ||
+        r.hostelId === selectedHostel ||
+        r.hostelName?.toUpperCase().includes(selectedHostel.toUpperCase());
+      const matchFloor = isFloorMatch(r.floorNumber, selectedFloor);
       return matchHostel && matchFloor;
     });
   }, [rooms, selectedHostel, selectedFloor]);
+
+  // When filteredRooms updates (e.g. floor or hostel filter changes), select a valid room
+  useEffect(() => {
+    if (filteredRooms.length > 0) {
+      const isCurrentValid = filteredRooms.some((r) => r.id === selectedRoomId);
+      if (!isCurrentValid) {
+        if (selectedHostel === "VINDHYA" && managerRoomId && filteredRooms.some((r) => r.id === managerRoomId)) {
+          setSelectedRoomId(managerRoomId);
+        } else if (selectedHostel === "SHALMALA") {
+          const firstAthleteBedId = teamAthletes.find((a) => a.bedId)?.bedId;
+          const athleteRoom = firstAthleteBedId
+            ? filteredRooms.find((r) => r.beds?.some((b) => b.id === firstAthleteBedId))
+            : null;
+          if (athleteRoom) {
+            setSelectedRoomId(athleteRoom.id);
+          } else {
+            setSelectedRoomId(filteredRooms[0].id);
+          }
+        } else {
+          setSelectedRoomId(filteredRooms[0].id);
+        }
+      }
+    } else {
+      setSelectedRoomId("");
+    }
+  }, [filteredRooms, selectedRoomId, selectedHostel, managerRoomId, teamAthletes]);
 
   const selectedRoom = useMemo(() => {
     return rooms.find((r) => r.id === selectedRoomId);
@@ -295,20 +412,40 @@ export default function RegistrationDeskPage() {
     return selectedRoom?.beds?.filter((b) => b.status === "AVAILABLE") || [];
   }, [selectedRoom]);
 
-  // Automatically assign available beds from selected room to athletes on initial room select
+  // Automatically assign available beds from selected room:
+  // - In SHALMALA: Only assign to the 5 squad athletes if none currently have a bed
+  // - In VINDHYA: Only assign to the Team Manager if no manager bed is currently set
   useEffect(() => {
     if (!wantAccommodation || !selectedRoom) return;
-    const avail = selectedRoom.beds.filter((b) => b.status === "AVAILABLE");
-    setTeamAthletes((prev) =>
-      prev.map((ath, idx) => ({
-        ...ath,
-        bedId: avail[idx] ? avail[idx].id : undefined,
-        bedNumber: avail[idx] ? avail[idx].bedNumber : undefined,
-      }))
-    );
-  }, [selectedRoomId, selectedRoom, wantAccommodation]);
 
-  // Select all 5 available beds in the selected room for the squad
+    if (selectedHostel === "SHALMALA") {
+      const hasAnyBed = teamAthletes.some((a) => Boolean(a.bedId));
+      if (!hasAnyBed) {
+        const avail = selectedRoom.beds.filter((b) => b.status === "AVAILABLE");
+        setTeamAthletes((prev) =>
+          prev.map((ath, idx) => ({
+            ...ath,
+            bedId: avail[idx] ? avail[idx].id : undefined,
+            bedNumber: avail[idx] ? avail[idx].bedNumber : undefined,
+          }))
+        );
+      }
+    } else if (selectedHostel === "VINDHYA") {
+      if (!managerBedId) {
+        const avail = selectedRoom.beds.find((b) => b.status === "AVAILABLE");
+        if (avail) {
+          setManagerBedId(avail.id);
+          setManagerBedNumber(avail.bedNumber);
+          setManagerRoomId(selectedRoom.id);
+          setManagerRoomNumber(selectedRoom.roomNumber);
+          setManagerFloor(selectedRoom.floorNumber || "FLOOR 01");
+          setManagerHostel(selectedRoom.hostelName || "Vindhya Boys Hostel");
+        }
+      }
+    }
+  }, [selectedRoomId, selectedRoom, selectedHostel, wantAccommodation, managerBedId]);
+
+  // Select all 5 available beds in the selected room for the squad (SHALMALA)
   const handleSelectAllBeds = () => {
     if (!selectedRoom) return;
     const avail = selectedRoom.beds.filter((b) => b.status === "AVAILABLE");
@@ -322,7 +459,7 @@ export default function RegistrationDeskPage() {
     showToast("All available beds assigned to the 5 squad athletes ✓");
   };
 
-  // Clear all bed assignments
+  // Clear all bed assignments for athletes (SHALMALA)
   const handleClearAllBeds = () => {
     setTeamAthletes((prev) =>
       prev.map((ath) => ({
@@ -331,10 +468,56 @@ export default function RegistrationDeskPage() {
         bedNumber: undefined,
       }))
     );
-    showToast("All bed allocations cleared");
+    showToast("All athlete bed allocations cleared");
   };
 
-  // Assign specific bed to specific athlete
+  // Allocate first available bed in current room for manager (VINDHYA)
+  const handleAllocateManagerBed = () => {
+    if (!selectedRoom) return;
+    const avail = selectedRoom.beds.find((b) => b.status === "AVAILABLE");
+    if (avail) {
+      setManagerBedId(avail.id);
+      setManagerBedNumber(avail.bedNumber);
+      setManagerRoomId(selectedRoom.id);
+      setManagerRoomNumber(selectedRoom.roomNumber);
+      setManagerFloor(selectedRoom.floorNumber || "FLOOR 01");
+      setManagerHostel(selectedRoom.hostelName || "Vindhya Boys Hostel");
+      showToast(`Assigned ${avail.bedNumber} (Room ${selectedRoom.roomNumber}) to Team Manager ✓`);
+    } else {
+      showToast("No available beds in this room for Team Manager", "error");
+    }
+  };
+
+  // Clear manager bed assignment (VINDHYA)
+  const handleClearManagerBed = () => {
+    setManagerBedId(undefined);
+    setManagerBedNumber(undefined);
+    setManagerRoomId(undefined);
+    setManagerRoomNumber(undefined);
+    setManagerFloor(undefined);
+    showToast("Manager bed allocation cleared");
+  };
+
+  // Toggle manager bed on card click (VINDHYA)
+  const handleToggleManagerBed = (bed: { id: string; bedNumber: string; status: string }) => {
+    if (bed.status !== "AVAILABLE" && bed.id !== managerBedId) return;
+
+    if (managerBedId === bed.id) {
+      handleClearManagerBed();
+      return;
+    }
+
+    if (!selectedRoom) return;
+    setManagerBedId(bed.id);
+    setManagerBedNumber(bed.bedNumber);
+    setManagerRoomId(selectedRoom.id);
+    setManagerRoomNumber(selectedRoom.roomNumber);
+    setManagerFloor(selectedRoom.floorNumber || "FLOOR 01");
+    setManagerHostel(selectedRoom.hostelName || "Vindhya Boys Hostel");
+    showToast(`Assigned ${bed.bedNumber} (Room ${selectedRoom.roomNumber}) to Team Manager ✓`);
+  };
+
+  // Assign specific bed to specific athlete (SHALMALA)
   const handleAssignBedToAthlete = (athleteIndex: number, bedId: string) => {
     const bedObj = selectedRoom?.beds.find((b) => b.id === bedId);
     setTeamAthletes((prev) => {
@@ -357,7 +540,20 @@ export default function RegistrationDeskPage() {
 
   // Toggle bed assignment on click
   const handleToggleBedSelection = (bed: { id: string; bedNumber: string; status: string }) => {
-    if (bed.status !== "AVAILABLE") return;
+    if (selectedHostel === "VINDHYA") {
+      handleToggleManagerBed(bed);
+      return;
+    }
+
+    if (bed.status !== "AVAILABLE") {
+      const assignedIndex = teamAthletes.findIndex((a) => a.bedId === bed.id);
+      if (assignedIndex !== -1) {
+        handleAssignBedToAthlete(assignedIndex, "");
+        showToast(`Unassigned ${bed.bedNumber}`);
+      }
+      return;
+    }
+
     const assignedIndex = teamAthletes.findIndex((a) => a.bedId === bed.id);
     if (assignedIndex !== -1) {
       handleAssignBedToAthlete(assignedIndex, "");
@@ -370,7 +566,7 @@ export default function RegistrationDeskPage() {
       const athName = teamAthletes[firstUnassignedIndex].name || `Athlete 0${firstUnassignedIndex + 1}`;
       showToast(`Assigned ${bed.bedNumber} ➔ ${athName} ✓`);
     } else {
-      showToast("All 5 athletes already have beds assigned. To reassign, change an athlete's bed dropdown below.", "info");
+      showToast("All 5 athletes already have beds assigned. To reassign, click an assigned bed to unassign first.", "info");
     }
   };
 
@@ -399,8 +595,8 @@ export default function RegistrationDeskPage() {
           category: p.category || "Women's Team",
           role: p.teamMemberships?.[0]?.role || p.role || "ATHLETE",
           photoUrl: p.photoUrl,
-          qrToken: p.qrPasses?.[0]?.token || `sz26_part_${p.id}`,
-          documentsStatus: p.documents?.length > 0 ? "VERIFIED" : "DOCUMENTS_PENDING",
+          qrToken: (p.documentsStatus === "VERIFIED" || (p.documents?.length > 0 && p.documents.every((d: any) => d.status === "VERIFIED"))) ? (p.qrToken || p.qrPasses?.[0]?.token || null) : null,
+          documentsStatus: p.documentsStatus || (p.documents?.length > 0 && p.documents.every((d: any) => d.status === "VERIFIED") ? "VERIFIED" : p.documents?.length > 0 ? "PENDING" : "DOCUMENTS_PENDING"),
           documents: p.documents || [],
           paymentStatus: "PAID",
           paymentMethod: p.payments?.[0]?.method || "CASH",
@@ -471,12 +667,24 @@ export default function RegistrationDeskPage() {
     if (!videoRef.current) return;
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    const rawWidth = video.videoWidth || 640;
+    const rawHeight = video.videoHeight || 480;
+    const maxDim = 800;
+    let targetWidth = rawWidth;
+    let targetHeight = rawHeight;
+    if (targetWidth > maxDim || targetHeight > maxDim) {
+      const ratio = Math.min(maxDim / targetWidth, maxDim / targetHeight);
+      targetWidth = Math.round(targetWidth * ratio);
+      targetHeight = Math.round(targetHeight * ratio);
+    }
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
       setCameraPreview(dataUrl);
     }
   };
@@ -485,59 +693,85 @@ export default function RegistrationDeskPage() {
     if (!cameraPreview) return;
     if (activePhotoTarget === "MANAGER") {
       setManagerPhotoUrl(cameraPreview);
-      showToast("Team Manager photo captured successfully ✓");
+      showToast("Team Manager photo captured & compressed ✓");
     } else if (typeof activePhotoTarget === "number") {
       handleUpdateAthlete(activePhotoTarget, "photoUrl", cameraPreview);
-      showToast(`Athlete 0${activePhotoTarget + 1} photo captured successfully ✓`);
+      showToast(`Athlete 0${activePhotoTarget + 1} photo captured & compressed ✓`);
     }
     stopCamera();
   };
 
-  const handleFileUpload = (target: "MANAGER" | number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (target: "MANAGER" | number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image file (JPEG or PNG).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
+    setCompressingPhotoTarget(target);
+    try {
+      showToast("Compressing photo before upload...", "info");
+      const res = await compressUploadedFile(file, "AVATAR");
       if (target === "MANAGER") {
-        setManagerPhotoUrl(dataUrl);
-        showToast("Team Manager photo uploaded ✓");
+        setManagerPhotoUrl(res.dataUrl);
+        showToast(
+          res.isCompressed
+            ? `Manager photo compressed (${res.summary}) & attached ✓`
+            : `Team Manager photo attached (${res.summary}) ✓`
+        );
       } else {
-        handleUpdateAthlete(target, "photoUrl", dataUrl);
-        showToast(`Athlete 0${target + 1} photo uploaded ✓`);
+        handleUpdateAthlete(target, "photoUrl", res.dataUrl);
+        showToast(
+          res.isCompressed
+            ? `Athlete 0${target + 1} photo compressed (${res.summary}) & attached ✓`
+            : `Athlete 0${target + 1} photo attached (${res.summary}) ✓`
+        );
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error("Photo compression error:", err);
+      alert("Failed to compress image file.");
+    } finally {
+      setCompressingPhotoTarget(null);
+      e.target.value = "";
+    }
   };
 
   // ─────────────────────────────────────────────────────────────
   // PER-ATHLETE & MANAGER 1 COMBINED PDF HANDLERS
   // ─────────────────────────────────────────────────────────────
-  const handleAthletePdfUpload = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAthletePdfUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       alert("Please upload a valid PDF document (.pdf only).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+    setCompressingAthletePdfIdx(idx);
+    try {
+      showToast(`Compressing Athlete 0${idx + 1} PDF before attaching...`, "info");
+      const res = await compressUploadedFile(file, "DOCUMENT");
+      const displaySize = res.isCompressed
+        ? `${res.compressedSizeFormatted} (${res.savedPercent}% compressed)`
+        : res.compressedSizeFormatted;
       setTeamAthletes((prev) =>
         prev.map((a, i) =>
           i === idx
-            ? { ...a, pdfFileName: file.name, pdfFileSize: `${sizeMb} MB`, pdfDataUrl: dataUrl }
+            ? { ...a, pdfFileName: res.fileName, pdfFileSize: displaySize, pdfDataUrl: res.dataUrl }
             : a
         )
       );
-      showToast(`Athlete 0${idx + 1} combined PDF attached ✓`);
-    };
-    reader.readAsDataURL(file);
+      showToast(
+        res.isCompressed
+          ? `Athlete 0${idx + 1} PDF compressed (${res.summary}) & attached ✓`
+          : `Athlete 0${idx + 1} combined PDF attached (${res.summary}) ✓`
+      );
+    } catch (err: any) {
+      console.error("Athlete PDF compression error:", err);
+      alert("Failed to compress PDF document.");
+    } finally {
+      setCompressingAthletePdfIdx(null);
+      e.target.value = "";
+    }
   };
 
   const handleRemoveAthletePdf = (idx: number) => {
@@ -550,23 +784,35 @@ export default function RegistrationDeskPage() {
     );
   };
 
-  const handleManagerPdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleManagerPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       alert("Please upload a valid PDF document (.pdf only).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      setManagerPdfName(file.name);
-      setManagerPdfSize(`${sizeMb} MB`);
-      setManagerPdfDataUrl(dataUrl);
-      showToast("Team Manager combined PDF attached ✓");
-    };
-    reader.readAsDataURL(file);
+    setIsCompressingManagerPdf(true);
+    try {
+      showToast("Compressing Manager PDF before attaching...", "info");
+      const res = await compressUploadedFile(file, "DOCUMENT");
+      const displaySize = res.isCompressed
+        ? `${res.compressedSizeFormatted} (${res.savedPercent}% compressed)`
+        : res.compressedSizeFormatted;
+      setManagerPdfName(res.fileName);
+      setManagerPdfSize(displaySize);
+      setManagerPdfDataUrl(res.dataUrl);
+      showToast(
+        res.isCompressed
+          ? `Manager PDF compressed (${res.summary}) & attached ✓`
+          : `Team Manager combined PDF attached (${res.summary}) ✓`
+      );
+    } catch (err: any) {
+      console.error("Manager PDF compression error:", err);
+      alert("Failed to compress Manager PDF.");
+    } finally {
+      setIsCompressingManagerPdf(false);
+      e.target.value = "";
+    }
   };
 
   const handleRemoveManagerPdf = () => {
@@ -576,43 +822,137 @@ export default function RegistrationDeskPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // VERIFY DOCUMENTS & ISSUE QR PASS HANDLER
+  // ─────────────────────────────────────────────────────────────
+  const handleVerifyDocumentsForParticipant = async (participantId: string) => {
+    try {
+      showToast("Verifying documents & generating official accreditation QR pass...", "info");
+      const res = await fetch("/api/registration/documents/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId, markAll: true }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("✓ Verification successful! Official accreditation QR pass generated.", "success");
+        await fetchParticipants();
+        if (docUploadParticipant && docUploadParticipant.id === participantId) {
+          setDocUploadParticipant(null);
+        }
+      } else {
+        alert(data.error || "Failed to verify documents.");
+      }
+    } catch (err: any) {
+      alert(`Verification error: ${err.message}`);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
   // DIRECT DOCUMENT UPLOAD & VERIFY HANDLER
   // ─────────────────────────────────────────────────────────────
   const handleUploadDocumentForParticipant = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !docUploadParticipant) return;
 
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      alert("Only PDF format is accepted. Please upload 1 Combined PDF dossier.");
+      e.target.value = "";
+      return;
+    }
+
     setUploadingDoc(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = reader.result as string;
-        const res = await fetch("/api/documents/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            participantId: docUploadParticipant.id,
-            type: selectedDocType,
-            fileName: file.name,
-            dataUrl,
-            mimeType: file.type || "image/jpeg",
-          }),
-        });
+      showToast(`Compressing ${file.name} before upload...`, "info");
+      const resCompress = await compressUploadedFile(file, "DOCUMENT");
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantId: docUploadParticipant.id,
+          type: "COMBINED_PDF",
+          fileName: resCompress.fileName,
+          dataUrl: resCompress.dataUrl,
+          mimeType: resCompress.fileType || "application/pdf",
+          autoVerify: autoVerifyDossier,
+        }),
+      });
 
-        const data = await res.json();
-        if (res.ok && data.success) {
-          showToast(`✓ Document (${selectedDocType}) uploaded & verified for ${docUploadParticipant.name}`, "success");
-          fetchParticipants();
-          setDocUploadParticipant(null);
-        } else {
-          alert(`Document upload error: ${data.error || "Failed to upload"}`);
-        }
-      };
-      reader.readAsDataURL(file);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(
+          autoVerifyDossier
+            ? `✓ 1 Combined PDF dossier uploaded & verified for ${docUploadParticipant.name}. Official QR pass generated!`
+            : `✓ 1 Combined PDF dossier uploaded (${resCompress.summary}) for ${docUploadParticipant.name}. Pending verification.`,
+          "success"
+        );
+        fetchParticipants();
+        setDocUploadParticipant(null);
+      } else {
+        alert(`Document upload error: ${data.error || "Failed to upload"}`);
+      }
     } catch (err: any) {
       alert(`Upload error: ${err.message}`);
     } finally {
       setUploadingDoc(false);
+      e.target.value = "";
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // DIRECT NATIVE FILE PICKER FOR PARTICIPANT DOCUMENT UPLOADS
+  // ─────────────────────────────────────────────────────────────
+  const triggerNativeFileUpload = (participant: ParticipantRecord) => {
+    setTargetParticipantForUpload(participant);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleNativeFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !targetParticipantForUpload) return;
+
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      alert("Only PDF format is accepted. Please upload 1 Combined PDF dossier.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingDoc(true);
+    try {
+      showToast(`Compressing & uploading ${file.name}...`, "info");
+      const resCompress = await compressUploadedFile(file, "DOCUMENT");
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantId: targetParticipantForUpload.id,
+          type: "COMBINED_PDF",
+          fileName: resCompress.fileName,
+          dataUrl: resCompress.dataUrl,
+          mimeType: resCompress.fileType || "application/pdf",
+          autoVerify: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(
+          `✓ 1 Combined PDF dossier uploaded & verified for ${targetParticipantForUpload.name}. Official pass active!`,
+          "success"
+        );
+        await fetchParticipants();
+        setTargetParticipantForUpload(null);
+      } else {
+        alert(`Document upload error: ${data.error || "Failed to upload"}`);
+      }
+    } catch (err: any) {
+      alert(`Upload error: ${err.message}`);
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = "";
     }
   };
 
@@ -629,10 +969,23 @@ export default function RegistrationDeskPage() {
       return;
     }
 
-    // Validate Manager (if name is entered, ensure mobile & photo are entered)
-    if (managerName.trim()) {
+    // Validate Manager (if name is entered or any manager details are provided)
+    if (managerName.trim() || managerPhone.trim() || managerEmail.trim() || managerPhotoUrl) {
+      if (!managerName.trim()) {
+        alert("Please enter Full Name for Team Manager.");
+        return;
+      }
       if (!managerPhone.trim()) {
         alert("Please enter Mobile Number for Team Manager.");
+        return;
+      }
+      if (!managerEmail.trim()) {
+        alert("Please enter Email Address for Team Manager.");
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(managerEmail.trim())) {
+        alert("Please enter a valid Email Address for Team Manager.");
         return;
       }
       if (!managerPhotoUrl) {
@@ -642,6 +995,7 @@ export default function RegistrationDeskPage() {
     }
 
     // Validate all 5 athletes
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     for (let i = 0; i < teamAthletes.length; i++) {
       const ath = teamAthletes[i];
       const slotName = i === 0 ? "Athlete 1 (Team Captain)" : `Athlete ${i + 1}`;
@@ -651,6 +1005,14 @@ export default function RegistrationDeskPage() {
       }
       if (!ath.mobile.trim()) {
         alert(`Please enter Mobile Number for ${slotName}.`);
+        return;
+      }
+      if (!ath.email.trim()) {
+        alert(`Please enter Email Address for ${slotName}.`);
+        return;
+      }
+      if (!emailRegex.test(ath.email.trim())) {
+        alert(`Please enter a valid Email Address for ${slotName}.`);
         return;
       }
       if (!ath.photoUrl) {
@@ -680,6 +1042,7 @@ export default function RegistrationDeskPage() {
         managerPhone: managerPhone.trim() || undefined,
         managerEmail: managerEmail.trim() || undefined,
         managerPhotoUrl: managerPhotoUrl || undefined,
+        managerBedId: wantAccommodation ? managerBedId : undefined,
         managerPdf: managerPdfDataUrl ? {
           fileName: managerPdfName,
           fileSize: managerPdfSize,
@@ -733,11 +1096,11 @@ export default function RegistrationDeskPage() {
           paymentStatus: "PAID",
           paymentMethod,
           amountPaid: 0,
-          accommodationStatus: "NOT_ALLOCATED",
-          hostel: "—",
-          floor: "—",
-          room: "—",
-          bed: "—",
+          accommodationStatus: teamData.manager.bed ? "ALLOCATED" : (managerBedId ? "ALLOCATED" : "NOT_ALLOCATED"),
+          hostel: teamData.manager.bed?.hostel || (managerBedId ? (managerHostel || "Vindhya Boys Hostel") : "—"),
+          floor: teamData.manager.bed?.floor || (managerBedId ? (managerFloor || "FLOOR 01") : "—"),
+          room: teamData.manager.bed?.roomNumber || (managerBedId ? (managerRoomNumber || "—") : "—"),
+          bed: teamData.manager.bed?.bedNumber || (managerBedId ? (managerBedNumber || "—") : "—"),
           registrationStatus: "COMPLETED",
           registeredAt: new Date().toLocaleString(),
         };
@@ -763,7 +1126,7 @@ export default function RegistrationDeskPage() {
         amountPaid: feePerAthlete,
         accommodationStatus: p.bed ? "ALLOCATED" : "NOT_ALLOCATED",
         hostel: p.bed?.hostel || (selectedHostel === "SHALMALA" ? "Shalmala Hostel" : "Vindhya Boys Hostel"),
-        floor: p.bed?.floor || selectedFloor || "Floor 01",
+        floor: p.bed?.floor || selectedRoom?.floorNumber || selectedFloor || "GROUND FLOOR",
         room: p.bed?.roomNumber || selectedRoom?.roomNumber || "—",
         bed: p.bed?.bedNumber || teamAthletes[idx]?.bedNumber || "—",
         registrationStatus: "COMPLETED",
@@ -814,6 +1177,11 @@ export default function RegistrationDeskPage() {
     setManagerPhone("");
     setManagerEmail("");
     setManagerPhotoUrl(null);
+    setManagerBedId(undefined);
+    setManagerBedNumber(undefined);
+    setManagerRoomId(undefined);
+    setManagerRoomNumber(undefined);
+    setManagerFloor(undefined);
     setUpiUtr("");
     setIsPaymentVerified(true);
     setCreatedTeam(null);
@@ -833,7 +1201,15 @@ export default function RegistrationDeskPage() {
     );
   }, [participantsList, findSearchQuery]);
 
-  // Grouped by Institution for Tab 3 (ONBOARDED TEAMS & PASSES)
+  // Live participant record lookup (for newly registered team instant sync)
+  const getLiveParticipant = useCallback(
+    (p: ParticipantRecord) => {
+      return participantsList.find((item) => item.id === p.id) || p;
+    },
+    [participantsList]
+  );
+
+  // Grouped by Institution for Tab 02 (ONBOARDED TEAMS & PASSES)
   const groupedByInstitution = useMemo(() => {
     const map: Record<string, { state: string; participants: ParticipantRecord[] }> = {};
     participantsList.forEach((p) => {
@@ -850,6 +1226,54 @@ export default function RegistrationDeskPage() {
       totalPaid: data.participants.reduce((acc, p) => acc + (p.amountPaid || 2500), 0),
     }));
   }, [participantsList]);
+
+  // Filtered Participants across Search, State, and Document Status
+  const filteredParticipants = useMemo(() => {
+    return participantsList.filter((p) => {
+      if (searchFilter.trim()) {
+        const q = searchFilter.toLowerCase();
+        const matches =
+          p.name.toLowerCase().includes(q) ||
+          p.playerId.toLowerCase().includes(q) ||
+          p.phone.includes(q) ||
+          p.institution.toLowerCase().includes(q) ||
+          p.state.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      if (stateFilter !== "ALL" && p.state !== stateFilter) return false;
+      if (statusFilter === "VERIFIED" && p.documentsStatus !== "VERIFIED") return false;
+      if (statusFilter === "PENDING" && p.documentsStatus === "VERIFIED") return false;
+      return true;
+    });
+  }, [participantsList, searchFilter, stateFilter, statusFilter]);
+
+  // Filtered Teams based on search, state, and status
+  const filteredTeams = useMemo(() => {
+    return groupedByInstitution.filter((team) => {
+      if (stateFilter !== "ALL" && team.state !== stateFilter) return false;
+      if (statusFilter === "VERIFIED" && !team.participants.every((p) => p.documentsStatus === "VERIFIED")) return false;
+      if (statusFilter === "PENDING" && team.participants.every((p) => p.documentsStatus === "VERIFIED")) return false;
+      if (searchFilter.trim()) {
+        const q = searchFilter.toLowerCase();
+        const instMatch = team.institution.toLowerCase().includes(q);
+        const stateMatch = team.state.toLowerCase().includes(q);
+        const memberMatch = team.participants.some(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            p.playerId.toLowerCase().includes(q) ||
+            p.phone.includes(q)
+        );
+        return instMatch || stateMatch || memberMatch;
+      }
+      return true;
+    });
+  }, [groupedByInstitution, searchFilter, stateFilter, statusFilter]);
+
+  // Selected Team Details Drilldown Memo
+  const selectedTeamDetail = useMemo(() => {
+    if (!selectedTeamName) return null;
+    return groupedByInstitution.find((t) => t.institution === selectedTeamName) || null;
+  }, [selectedTeamName, groupedByInstitution]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex flex-col selection:bg-[#FF5A16] selection:text-white">
@@ -880,14 +1304,6 @@ export default function RegistrationDeskPage() {
             </div>
 
             <div className="flex items-center gap-2.5">
-              {/* Direct Link to Mobile Document Scanner */}
-              <Link
-                href="/scanner"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-rajdhani text-xs font-bold uppercase rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-              >
-                <Smartphone className="w-4 h-4 text-[#FF5A16]" /> DOCUMENT SCANNER (/scanner)
-              </Link>
-
               <button
                 onClick={() => setIsFindDetailsOpen(true)}
                 type="button"
@@ -909,7 +1325,7 @@ export default function RegistrationDeskPage() {
             </div>
           </div>
 
-          {/* TOP-LEVEL 4 TABS: 01. FULL TEAM REGISTRATION | 02. REGISTERED PARTICIPANTS | 03. ONBOARDED TEAMS | 04. DOCUMENT VERIFICATION */}
+          {/* TOP-LEVEL 2 TABS: 01. FULL TEAM REGISTRATION | 02. ONBOARDED TEAMS & PASSES */}
           <div className="flex border-t border-slate-100 overflow-x-auto no-scrollbar">
             <button
               type="button"
@@ -926,21 +1342,6 @@ export default function RegistrationDeskPage() {
             <button
               type="button"
               onClick={() => {
-                setActiveTab("REGISTERED");
-                fetchParticipants();
-              }}
-              className={`flex items-center gap-2 px-5 py-3 font-rajdhani text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === "REGISTERED"
-                ? "border-[#FF5A16] text-[#FF5A16] bg-orange-50/60 font-black"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                }`}
-            >
-              <Users className="w-4 h-4" />
-              02. REGISTERED PARTICIPANTS ({participantsList.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
                 setActiveTab("ONBOARDED");
                 fetchParticipants();
               }}
@@ -950,22 +1351,7 @@ export default function RegistrationDeskPage() {
                 }`}
             >
               <BadgeCheck className="w-4 h-4" />
-              03. ONBOARDED TEAMS &amp; PASSES ({groupedByInstitution.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("DOCUMENTS");
-                fetchParticipants();
-              }}
-              className={`flex items-center gap-2 px-5 py-3 font-rajdhani text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer whitespace-nowrap ${activeTab === "DOCUMENTS"
-                ? "border-[#FF5A16] text-[#FF5A16] bg-orange-50/60 font-black"
-                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                }`}
-            >
-              <FileBadge className="w-4 h-4" />
-              04. DOCUMENT VERIFICATION &amp; UPLOADS ({participantsList.filter(p => p.documentsStatus === "VERIFIED").length}/{participantsList.length})
+              02. ONBOARDED TEAMS &amp; PASSES ({groupedByInstitution.length})
             </button>
           </div>
         </div>
@@ -1056,9 +1442,9 @@ export default function RegistrationDeskPage() {
                     </div>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                    <span className="text-slate-500 font-bold uppercase text-[10px]">DOCUMENTS SCANNER</span>
-                    <div className="text-amber-700 font-black text-sm flex items-center gap-1">
-                      <Smartphone className="w-4 h-4 text-[#FF5A16]" /> SCANNER READY (/scanner)
+                    <span className="text-slate-500 font-bold uppercase text-[10px]">DOCUMENT UPLOADS</span>
+                    <div className="text-emerald-700 font-black text-sm flex items-center gap-1">
+                      <FileText className="w-4 h-4 text-[#FF5A16]" /> SYSTEM UPLOADS ACTIVE
                     </div>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
@@ -1070,61 +1456,96 @@ export default function RegistrationDeskPage() {
                 </div>
 
                 {/* Manager Pass Card if registered */}
-                {createdTeam.manager && (
-                  <div className="p-4 bg-orange-50/70 border-2 border-orange-200 rounded-2xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-[#FF5A16] text-white font-rajdhani text-[10px] font-black rounded-full uppercase">
-                          OFFICIAL
-                        </span>
-                        <span className="font-rajdhani font-black text-sm uppercase text-slate-900">
-                          TEAM MANAGER ACCREDITATION PASS
+                {createdTeam.manager && (() => {
+                  const liveManager = getLiveParticipant(createdTeam.manager);
+                  return (
+                    <div className="p-4 bg-orange-50/70 border-2 border-orange-200 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-[#FF5A16] text-white font-rajdhani text-[10px] font-black rounded-full uppercase">
+                            OFFICIAL
+                          </span>
+                          <span className="font-rajdhani font-black text-sm uppercase text-slate-900">
+                            TEAM MANAGER ACCREDITATION PASS
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-[#FF5A16]">
+                          ID: {liveManager.playerId}
                         </span>
                       </div>
-                      <span className="text-xs font-mono font-bold text-[#FF5A16]">
-                        ID: {createdTeam.manager.playerId}
-                      </span>
-                    </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-5">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-200 border-2 border-slate-300 shrink-0">
-                        {createdTeam.manager.photoUrl ? (
-                          <img src={createdTeam.manager.photoUrl} alt="Manager" className="w-full h-full object-cover" />
+                      <div className="flex flex-col sm:flex-row items-center gap-5">
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-200 border-2 border-slate-300 shrink-0">
+                          {liveManager.photoUrl ? (
+                            <img src={liveManager.photoUrl} alt="Manager" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-10 h-10 text-slate-400 m-auto mt-5" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 space-y-1 text-center sm:text-left text-xs">
+                          <div className="font-rajdhani font-black text-slate-900 text-base">
+                            {liveManager.name}
+                          </div>
+                          <div className="text-slate-600 font-mono text-[11px]">
+                            Phone: {liveManager.phone}
+                          </div>
+                          <div className="text-slate-500 text-[11px]">
+                            Official Team Manager &bull; {createdTeam.team.institution}
+                          </div>
+                          {liveManager.room && liveManager.room !== "—" && (
+                            <div className="text-[10px] font-mono text-slate-700 bg-white/70 px-2 py-0.5 rounded border border-slate-200 w-fit">
+                              {liveManager.hostel} &bull; Room {liveManager.room} &bull; Bed {liveManager.bed}
+                            </div>
+                          )}
+                        </div>
+
+                        {liveManager.documentsStatus === "VERIFIED" && liveManager.qrToken ? (
+                          <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-2xs">
+                            <PortalQrCode
+                              value={liveManager.qrToken}
+                              size={90}
+                              showActions={false}
+                            />
+                          </div>
                         ) : (
-                          <User className="w-10 h-10 text-slate-400 m-auto mt-5" />
+                          <div className="w-20 h-20 bg-slate-100 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-1">
+                            <Lock className="w-4 h-4 text-amber-500 mb-0.5" />
+                            <span className="text-[9px] font-mono font-bold text-slate-700">QR LOCKED</span>
+                            <span className="text-[8px] text-slate-400">Verify in Tab 03</span>
+                          </div>
                         )}
-                      </div>
 
-                      <div className="flex-1 space-y-1 text-center sm:text-left text-xs">
-                        <div className="font-rajdhani font-black text-slate-900 text-base">
-                          {createdTeam.manager.name}
-                        </div>
-                        <div className="text-slate-600 font-mono text-[11px]">
-                          Phone: {createdTeam.manager.phone}
-                        </div>
-                        <div className="text-slate-500 text-[11px]">
-                          Official Team Manager &bull; {createdTeam.team.institution}
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDocType("COMBINED_PDF");
+                              setDocUploadParticipant(liveManager);
+                            }}
+                            className={`px-3 py-2 font-rajdhani text-xs font-bold uppercase rounded-xl flex items-center justify-center gap-1.5 cursor-pointer border transition-colors ${
+                              liveManager.documentsStatus === "VERIFIED"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-black"
+                                : "bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-xs"
+                            }`}
+                            title="Upload or manage manager 1 Combined PDF dossier"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            {liveManager.documentsStatus === "VERIFIED" ? "1 PDF DOSSIER ✓" : "UPLOAD 1 PDF"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedParticipantForPass(liveManager)}
+                            className="px-4 py-2 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-xs font-black uppercase rounded-xl cursor-pointer shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-[#FF5A16]" /> VIEW PASS
+                          </button>
                         </div>
                       </div>
-
-                      <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-2xs">
-                        <PortalQrCode
-                          value={createdTeam.manager.qrToken || `sz26_m_${createdTeam.manager.playerId}`}
-                          size={90}
-                          showActions={false}
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectedParticipantForPass(createdTeam.manager!)}
-                        className="px-4 py-2 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-xs font-bold uppercase rounded-xl cursor-pointer"
-                      >
-                        VIEW BADGE
-                      </button>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 5 Registered Athletes Cards with Photos and QR Tokens */}
                 <div className="space-y-3 pt-2">
@@ -1133,61 +1554,237 @@ export default function RegistrationDeskPage() {
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    {createdTeam.participants.map((ath, idx) => (
-                      <div
-                        key={ath.id}
-                        className="p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl flex flex-col items-center text-center space-y-3 shadow-xs hover:border-[#FF5A16] transition-colors"
-                      >
-                        <div className="w-full flex items-center justify-between text-[10px] font-mono font-bold">
-                          <span className={idx === 0 ? "text-[#FF5A16]" : "text-slate-500"}>
-                            {idx === 0 ? "★ CAPTAIN" : `ATHLETE 0${idx + 1}`}
-                          </span>
-                          <span className="text-emerald-700">✓ SAVED</span>
-                        </div>
-
-                        {/* Athlete Photo */}
-                        <div className="w-24 h-24 rounded-xl overflow-hidden border-2 border-slate-300 bg-slate-200 shadow-xs">
-                          {ath.photoUrl ? (
-                            <img src={ath.photoUrl} alt={ath.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <User className="w-10 h-10 text-slate-400 m-auto mt-6" />
-                          )}
-                        </div>
-
-                        <div className="space-y-0.5 w-full">
-                          <div className="font-rajdhani font-black text-slate-900 text-sm truncate" title={ath.name}>
-                            {ath.name}
-                          </div>
-                          <div className="font-mono text-xs text-[#FF5A16] font-bold">
-                            {ath.playerId}
-                          </div>
-                          <div className="text-[10px] font-mono text-slate-600 truncate">
-                            {ath.phone}
-                          </div>
-                        </div>
-
-                        {/* QR Code Pass */}
-                        <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-2xs">
-                          <PortalQrCode
-                            value={ath.qrToken || `sz26_p_${ath.playerId}`}
-                            size={100}
-                            showActions={false}
-                          />
-                        </div>
-
-                        <div className="w-full pt-1 border-t border-slate-200 text-[10px] font-mono text-slate-600">
-                          Room: <strong className="text-slate-900">{ath.room}</strong> &bull; Bed: <strong className="text-slate-900">{ath.bed}</strong>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedParticipantForPass(ath)}
-                          className="w-full py-1.5 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-[11px] font-bold uppercase rounded-lg transition-colors cursor-pointer"
+                    {createdTeam.participants.map((ath, idx) => {
+                      const liveAth = getLiveParticipant(ath);
+                      return (
+                        <div
+                          key={ath.id}
+                          className="p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl flex flex-col items-center text-center space-y-3 shadow-xs hover:border-[#FF5A16] transition-colors"
                         >
-                          VIEW BADGE
-                        </button>
-                      </div>
-                    ))}
+                          <div className="w-full flex items-center justify-between text-[10px] font-mono font-bold">
+                            <span className={idx === 0 ? "text-[#FF5A16]" : "text-slate-500"}>
+                              {idx === 0 ? "★ CAPTAIN" : `ATHLETE 0${idx + 1}`}
+                            </span>
+                            <span className="text-emerald-700">✓ SAVED</span>
+                          </div>
+
+                          {/* Athlete Photo */}
+                          <div className="w-24 h-24 rounded-xl overflow-hidden border-2 border-slate-300 bg-slate-200 shadow-xs">
+                            {liveAth.photoUrl ? (
+                              <img src={liveAth.photoUrl} alt={liveAth.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-10 h-10 text-slate-400 m-auto mt-6" />
+                            )}
+                          </div>
+
+                          <div className="space-y-0.5 w-full">
+                            <div className="font-rajdhani font-black text-slate-900 text-sm truncate" title={liveAth.name}>
+                              {liveAth.name}
+                            </div>
+                            <div className="font-mono text-xs text-[#FF5A16] font-bold">
+                              {liveAth.playerId}
+                            </div>
+                            <div className="text-[10px] font-mono text-slate-600 truncate">
+                              {liveAth.phone}
+                            </div>
+                          </div>
+
+                          {/* QR Code Pass */}
+                          {liveAth.documentsStatus === "VERIFIED" && liveAth.qrToken ? (
+                            <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-2xs">
+                              <PortalQrCode
+                                value={liveAth.qrToken}
+                                size={100}
+                                showActions={false}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-24 h-24 bg-slate-100 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-1.5">
+                              <Lock className="w-5 h-5 text-amber-500 mb-1" />
+                              <span className="text-[10px] font-mono font-bold text-slate-700">QR LOCKED</span>
+                              <span className="text-[8px] text-slate-400">Verify in Tab 03</span>
+                            </div>
+                          )}
+
+                          <div className="w-full pt-1 border-t border-slate-200 text-[10px] font-mono text-slate-600">
+                            Room: <strong className="text-slate-900">{liveAth.room}</strong> &bull; Bed: <strong className="text-slate-900">{liveAth.bed}</strong>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 w-full">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (liveAth.documents && liveAth.documents.length > 0 && liveAth.documents[0].filePath) {
+                                  window.open(liveAth.documents[0].filePath, "_blank");
+                                } else {
+                                  triggerNativeFileUpload(liveAth);
+                                }
+                              }}
+                              className={`py-1.5 px-2 font-rajdhani text-[10px] font-bold uppercase rounded-lg flex items-center justify-center gap-1 cursor-pointer border ${
+                                liveAth.documentsStatus === "VERIFIED"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-black"
+                                  : "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 font-bold"
+                              }`}
+                              title={liveAth.documentsStatus === "VERIFIED" ? "View verified PDF dossier" : "Upload 1 Combined PDF dossier from computer"}
+                            >
+                              <FileText className="w-3 h-3" />
+                              {liveAth.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedParticipantForPass(liveAth)}
+                              className="w-full py-1.5 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-[11px] font-bold uppercase rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1"
+                            >
+                              <QrCode className="w-3 h-3 text-[#FF5A16]" /> VIEW PASS
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Registered Contingent Roster Table (Manager + 5 Athletes) */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                    <div>
+                      <h4 className="font-rajdhani text-sm font-black text-slate-900 uppercase">
+                        CONTINGENT ACCREDITATION ROSTER ({createdTeam.team.institution})
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-sans">
+                        Full participant records, dossier attachments, verification status, and credentials
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("ONBOARDED");
+                        fetchParticipants();
+                      }}
+                      className="px-4 py-2 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-xs font-bold uppercase rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      VIEW IN ONBOARDED TEAMS &amp; PASSES <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-white text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200">
+                        <tr>
+                          <th className="p-2.5">PHOTO</th>
+                          <th className="p-2.5">PARTICIPANT NAME &amp; ID</th>
+                          <th className="p-2.5">ROLE</th>
+                          <th className="p-2.5">MOBILE</th>
+                          <th className="p-2.5">ACCOMMODATION</th>
+                          <th className="p-2.5">1 COMBINED PDF</th>
+                          <th className="p-2.5">QR STATUS</th>
+                          <th className="p-2.5 text-right">ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 font-sans">
+                        {[...(createdTeam.manager ? [createdTeam.manager] : []), ...createdTeam.participants].map((member) => {
+                          const liveMember = getLiveParticipant(member);
+                          return (
+                            <tr key={liveMember.id} className="hover:bg-white transition-colors">
+                              <td className="p-2.5">
+                                <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-200 border border-slate-300">
+                                  {liveMember.photoUrl ? (
+                                    <img src={liveMember.photoUrl} alt={liveMember.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <User className="w-4 h-4 text-slate-400 m-auto mt-2" />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-2.5">
+                                <div className="font-bold text-slate-900">{liveMember.name}</div>
+                                <div className="font-mono text-[10px] text-[#FF5A16] font-bold">{liveMember.playerId}</div>
+                              </td>
+                              <td className="p-2.5">
+                                <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${
+                                  liveMember.role === "MANAGER"
+                                    ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
+                                    : liveMember.role === "CAPTAIN"
+                                    ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
+                                    : "bg-slate-100 text-slate-700"
+                                }`}>
+                                  {liveMember.role || "ATHLETE"}
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-mono text-[11px] text-slate-600">{liveMember.phone}</td>
+                              <td className="p-2.5">
+                                <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${
+                                  liveMember.accommodationStatus === "ALLOCATED"
+                                    ? "bg-slate-100 text-slate-900 border border-slate-300"
+                                    : "bg-amber-50 text-amber-800 border border-amber-300"
+                                }`}>
+                                  {liveMember.room !== "—" ? `${liveMember.hostel} (${liveMember.room})` : "NOT ALLOCATED"}
+                                </span>
+                              </td>
+                              <td className="p-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDocType("COMBINED_PDF");
+                                    setDocUploadParticipant(liveMember);
+                                  }}
+                                  className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${
+                                    liveMember.documentsStatus === "VERIFIED"
+                                      ? "bg-emerald-50 text-emerald-800 border border-emerald-300 font-black"
+                                      : "bg-amber-50 text-amber-800 border border-amber-300"
+                                  }`}
+                                  title="Upload or view 1 Combined PDF dossier"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  {liveMember.documentsStatus === "VERIFIED" ? "1 PDF ✓" : "1 PDF PENDING"}
+                                </button>
+                              </td>
+                              <td className="p-2.5">
+                                {liveMember.documentsStatus === "VERIFIED" && liveMember.qrToken ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-rajdhani text-[10px] font-black flex items-center gap-1 w-fit">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> ACTIVE ✓
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-300 font-rajdhani text-[10px] font-bold flex items-center gap-1 w-fit">
+                                    <Lock className="w-2.5 h-2.5 text-amber-500" /> LOCKED
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2.5 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (liveMember.documents && liveMember.documents.length > 0 && liveMember.documents[0].filePath) {
+                                        window.open(liveMember.documents[0].filePath, "_blank");
+                                      } else {
+                                        triggerNativeFileUpload(liveMember);
+                                      }
+                                    }}
+                                    className={`px-2 py-1 font-rajdhani text-[10px] font-bold uppercase rounded-md flex items-center gap-1 cursor-pointer border ${
+                                      liveMember.documentsStatus === "VERIFIED"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-black"
+                                        : "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                                    }`}
+                                    title={liveMember.documentsStatus === "VERIFIED" ? "View verified PDF dossier" : "Upload 1 Combined PDF dossier from computer"}
+                                  >
+                                    <FileText className="w-3 h-3" />
+                                    {liveMember.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedParticipantForPass(liveMember)}
+                                    className="px-2.5 py-1 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-[10px] font-bold uppercase rounded-md cursor-pointer transition-colors flex items-center gap-1"
+                                  >
+                                    <QrCode className="w-3 h-3 text-[#FF5A16]" /> VIEW PASS
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -1244,7 +1841,7 @@ export default function RegistrationDeskPage() {
                           ) : (
                             institutions.map((inst) => (
                               <option key={inst.id} value={inst.id}>
-                                {inst.name} {inst.city ? `(${inst.city})` : ""}
+                                {inst.name} {inst.city && !inst.name.toLowerCase().includes(inst.city.toLowerCase()) ? `(${inst.city})` : ""}
                               </option>
                             ))
                           )}
@@ -1291,10 +1888,19 @@ export default function RegistrationDeskPage() {
                             </button>
 
                             <label className="w-full py-1.5 px-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-rajdhani text-[10px] font-bold uppercase rounded-lg flex items-center justify-center gap-1 cursor-pointer shadow-xs">
-                              <Upload className="w-3.5 h-3.5 text-slate-500" /> UPLOAD
+                              {compressingPhotoTarget === "MANAGER" ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FF5A16]" /> COMPRESSING...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-3.5 h-3.5 text-slate-500" /> UPLOAD
+                                </>
+                              )}
                               <input
                                 type="file"
                                 accept="image/*"
+                                disabled={compressingPhotoTarget === "MANAGER"}
                                 className="hidden"
                                 onChange={(e) => handleFileUpload("MANAGER", e)}
                               />
@@ -1332,10 +1938,11 @@ export default function RegistrationDeskPage() {
 
                           <div>
                             <label className="block font-rajdhani text-[10px] font-bold text-slate-800 uppercase tracking-wider mb-1">
-                              MANAGER EMAIL ADDRESS
+                              MANAGER EMAIL ADDRESS *
                             </label>
                             <input
                               type="email"
+                              required
                               placeholder="manager@university.edu"
                               value={managerEmail}
                               onChange={(e) => setManagerEmail(e.target.value)}
@@ -1370,11 +1977,21 @@ export default function RegistrationDeskPage() {
                           </div>
                         ) : (
                           <label className="px-3.5 py-1.5 bg-white hover:bg-orange-50/70 border-2 border-dashed border-orange-300 hover:border-[#FF5A16] text-slate-700 hover:text-[#FF5A16] rounded-xl font-rajdhani text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors">
-                            <Upload className="w-3.5 h-3.5 text-[#FF5A16]" />
-                            UPLOAD 1 COMBINED PDF (MANAGER)
+                            {isCompressingManagerPdf ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FF5A16]" />
+                                COMPRESSING & OPTIMIZING PDF...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3.5 h-3.5 text-[#FF5A16]" />
+                                UPLOAD 1 COMBINED PDF (MANAGER)
+                              </>
+                            )}
                             <input
                               type="file"
                               accept=".pdf,application/pdf"
+                              disabled={isCompressingManagerPdf}
                               className="hidden"
                               onChange={handleManagerPdfUpload}
                             />
@@ -1450,10 +2067,21 @@ export default function RegistrationDeskPage() {
                                   </button>
 
                                   <label className="w-full py-1 px-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-rajdhani text-[10px] font-bold uppercase rounded-lg flex items-center justify-center gap-1 cursor-pointer">
-                                    <Upload className="w-3 h-3 text-slate-500" /> UPLOAD
+                                    {compressingPhotoTarget === idx ? (
+                                      <>
+                                        <RefreshCw className="w-3 h-3 animate-spin text-[#FF5A16]" />
+                                        <span>COMPRESSING...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className="w-3 h-3 text-slate-500" />
+                                        <span>UPLOAD</span>
+                                      </>
+                                    )}
                                     <input
                                       type="file"
                                       accept="image/*"
+                                      disabled={compressingPhotoTarget === idx}
                                       className="hidden"
                                       onChange={(e) => handleFileUpload(idx, e)}
                                     />
@@ -1494,10 +2122,11 @@ export default function RegistrationDeskPage() {
                                 {/* Email Address */}
                                 <div>
                                   <label className="block font-rajdhani text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                                    EMAIL ADDRESS
+                                    EMAIL ADDRESS *
                                   </label>
                                   <input
                                     type="email"
+                                    required
                                     placeholder="athlete@univ.edu"
                                     value={athlete.email}
                                     onChange={(e) => handleUpdateAthlete(idx, "email", e.target.value)}
@@ -1532,11 +2161,21 @@ export default function RegistrationDeskPage() {
                                 </div>
                               ) : (
                                 <label className="px-3 py-1 bg-white hover:bg-orange-50/70 border-2 border-dashed border-slate-300 hover:border-[#FF5A16] text-slate-700 hover:text-[#FF5A16] rounded-lg font-rajdhani text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors">
-                                  <Upload className="w-3 h-3 text-[#FF5A16]" />
-                                  UPLOAD 1 COMBINED PDF
+                                  {compressingAthletePdfIdx === idx ? (
+                                    <>
+                                      <RefreshCw className="w-3 h-3 animate-spin text-[#FF5A16]" />
+                                      COMPRESSING PDF...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload className="w-3 h-3 text-[#FF5A16]" />
+                                      UPLOAD 1 COMBINED PDF
+                                    </>
+                                  )}
                                   <input
                                     type="file"
                                     accept=".pdf,application/pdf"
+                                    disabled={compressingAthletePdfIdx === idx}
                                     className="hidden"
                                     onChange={(e) => handleAthletePdfUpload(idx, e)}
                                   />
@@ -1549,39 +2188,79 @@ export default function RegistrationDeskPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 04: CONTINGENT ACCOMMODATION (5-BED SQUAD ALLOCATION) */}
+                  {/* SECTION 04: CONTINGENT ACCOMMODATION (5 ATHLETES IN SHALMALA + MANAGER IN VINDHYA) */}
                   <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-2.5">
                         <span className="w-6 h-6 rounded-lg bg-orange-50 border border-orange-200 text-[#FF5A16] font-rajdhani font-black text-xs flex items-center justify-center">04</span>
                         <div>
                           <h2 className="font-rajdhani text-base sm:text-lg text-slate-900 font-black uppercase tracking-wider">
-                            CONTINGENT ACCOMMODATION (5 BEDS SQUAD ALLOCATION)
+                            {selectedHostel === "VINDHYA"
+                              ? "TEAM MANAGER ACCOMMODATION (VINDHYA BOYS HOSTEL)"
+                              : "CONTINGENT ACCOMMODATION (5 BEDS SQUAD ALLOCATION)"}
                           </h2>
                           <p className="text-[11px] text-slate-500 font-sans">
-                            {selectedBedsCount} of 5 Athletes Assigned Beds &bull; {selectedBedsCount === 5 ? "✓ Complete" : "Select beds below"}
+                            {selectedHostel === "VINDHYA" ? (
+                              managerBedId ? (
+                                <span className="text-emerald-700 font-bold">
+                                  ✓ Bed {managerBedNumber} allocated in Room {managerRoomNumber || selectedRoom?.roomNumber} ({managerName.trim() || "Team Manager"})
+                                </span>
+                              ) : (
+                                <span className="text-amber-700 font-semibold">
+                                  No bed allocated for Team Manager &bull; Click an available bed below
+                                </span>
+                              )
+                            ) : (
+                              <span>
+                                {selectedBedsCount} of 5 Athletes Assigned Beds &bull; {selectedBedsCount === 5 ? "✓ Complete" : "Select beds below"}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        {/* SELECT ALL 5 BEDS BUTTON */}
-                        <button
-                          type="button"
-                          onClick={handleSelectAllBeds}
-                          className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded-xl text-xs font-rajdhani font-black uppercase flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> SELECT ALL 5 BEDS
-                        </button>
+                        {selectedHostel === "VINDHYA" ? (
+                          <>
+                            {/* ALLOCATE MANAGER BED BUTTON */}
+                            <button
+                              type="button"
+                              onClick={handleAllocateManagerBed}
+                              className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded-xl text-xs font-rajdhani font-black uppercase flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> ALLOCATE MANAGER BED
+                            </button>
 
-                        {/* CLEAR ALL BEDS BUTTON */}
-                        <button
-                          type="button"
-                          onClick={handleClearAllBeds}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold uppercase flex items-center gap-1.5 border border-slate-300 cursor-pointer transition-all"
-                        >
-                          <X className="w-3.5 h-3.5" /> CLEAR ALL
-                        </button>
+                            {/* CLEAR MANAGER BED BUTTON */}
+                            <button
+                              type="button"
+                              onClick={handleClearManagerBed}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold uppercase flex items-center gap-1.5 border border-slate-300 cursor-pointer transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" /> CLEAR MANAGER BED
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {/* SELECT ALL 5 BEDS BUTTON */}
+                            <button
+                              type="button"
+                              onClick={handleSelectAllBeds}
+                              className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded-xl text-xs font-rajdhani font-black uppercase flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> SELECT ALL 5 BEDS
+                            </button>
+
+                            {/* CLEAR ALL BEDS BUTTON */}
+                            <button
+                              type="button"
+                              onClick={handleClearAllBeds}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold uppercase flex items-center gap-1.5 border border-slate-300 cursor-pointer transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" /> CLEAR ALL
+                            </button>
+                          </>
+                        )}
 
                         {/* VIEW ALL ROOMS MODAL BUTTON */}
                         <button
@@ -1591,6 +2270,29 @@ export default function RegistrationDeskPage() {
                         >
                           <Bed className="w-3.5 h-3.5 text-[#FF5A16]" /> VIEW ALL ROOMS
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Contingent Allocation Status Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2.5 h-2.5 rounded-full ${selectedBedsCount === 5 ? "bg-emerald-500" : selectedBedsCount > 0 ? "bg-amber-500" : "bg-slate-300"}`} />
+                          <span className="font-rajdhani font-bold text-slate-700">SHALMALA (ATHLETES):</span>
+                          <span className="font-mono text-slate-900 font-bold">{selectedBedsCount}/5 Beds Assigned</span>
+                        </div>
+                        <span className="text-slate-300 hidden sm:inline">|</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2.5 h-2.5 rounded-full ${managerBedId ? "bg-emerald-500" : "bg-amber-500"}`} />
+                          <span className="font-rajdhani font-bold text-slate-700">VINDHYA (MANAGER):</span>
+                          <span className="font-mono text-slate-900 font-bold">
+                            {managerBedId ? `${managerRoomNumber || "Room"} - ${managerBedNumber}` : "Not Allocated"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] font-sans text-slate-500">
+                        Active Filter: <span className="font-bold text-slate-800">{selectedHostel === "SHALMALA" ? "Shalmala (Female Athletes)" : "Vindhya (Male Manager)"}</span>
                       </div>
                     </div>
 
@@ -1605,7 +2307,7 @@ export default function RegistrationDeskPage() {
                           value={selectedHostel}
                           onChange={(e) => {
                             setSelectedHostel(e.target.value);
-                            setSelectedRoomId("");
+                            setSelectedFloor("");
                           }}
                           className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-[#FF5A16] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
                         >
@@ -1623,39 +2325,83 @@ export default function RegistrationDeskPage() {
                           value={selectedFloor}
                           onChange={(e) => {
                             setSelectedFloor(e.target.value);
-                            setSelectedRoomId("");
                           }}
                           className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-[#FF5A16] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
                         >
                           <option value="">All Floors</option>
-                          <option value="Floor 01">Floor 01</option>
-                          <option value="Floor 02">Floor 02</option>
-                          <option value="Floor 03">Floor 03</option>
+                          {availableFloors.length > 0 ? (
+                            availableFloors.map((fl) => (
+                              <option key={fl} value={fl}>
+                                {fl.toUpperCase()}
+                              </option>
+                            ))
+                          ) : (
+                            <>
+                              <option value="GROUND FLOOR">GROUND FLOOR</option>
+                              <option value="FLOOR 01">FLOOR 01</option>
+                              <option value="FLOOR 02">FLOOR 02</option>
+                            </>
+                          )}
                         </select>
                       </div>
 
                       {/* Room Selection */}
                       <div>
                         <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-                          ROOM (5-BED CONTINGENT ROOM)
+                          ROOM {selectedHostel === "VINDHYA" ? "(MANAGER ROOM)" : "(5-BED CONTINGENT ROOM)"}
                         </label>
                         <select
                           value={selectedRoomId}
                           onChange={(e) => setSelectedRoomId(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-[#FF5A16] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
                         >
-                          <option value="">Select Room</option>
-                          {filteredRooms.map((r) => {
-                            const availCount = r.beds?.filter((b) => b.status === "AVAILABLE").length || 0;
-                            return (
-                              <option key={r.id} value={r.id} disabled={availCount === 0}>
-                                {r.roomNumber} ({availCount}/{r.capacity || 5} Available Beds)
-                              </option>
-                            );
-                          })}
+                          {filteredRooms.length === 0 ? (
+                            <option value="">No rooms available on this floor</option>
+                          ) : (
+                            filteredRooms.map((r) => {
+                              const availCount = r.beds?.filter((b) => b.status === "AVAILABLE").length || 0;
+                              const squadBedsInRoom = teamAthletes.filter((a) => r.beds?.some((b) => b.id === a.bedId)).length;
+                              const isManagerInRoom = selectedHostel === "VINDHYA" && managerRoomId === r.id;
+                              const isSquadInRoom = selectedHostel === "SHALMALA" && squadBedsInRoom > 0;
+
+                              return (
+                                <option
+                                  key={r.id}
+                                  value={r.id}
+                                  disabled={availCount === 0 && !isSquadInRoom && !isManagerInRoom}
+                                >
+                                  {r.roomNumber} ({availCount}/{r.capacity || 5} Available Beds) — {r.floorNumber}
+                                  {isSquadInRoom ? ` (${squadBedsInRoom} Squad Assigned)` : ""}
+                                  {isManagerInRoom ? " (★ Manager Allocated)" : ""}
+                                </option>
+                              );
+                            })
+                          )}
                         </select>
                       </div>
                     </div>
+
+                    {/* Cross-room notice for Manager when on Vindhya */}
+                    {selectedHostel === "VINDHYA" && managerBedId && managerRoomNumber && selectedRoom && managerRoomNumber !== selectedRoom.roomNumber && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                        <span>
+                          Manager currently allocated to <strong>{managerBedNumber}</strong> in <strong>Room {managerRoomNumber}</strong> ({managerFloor}).
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const found = rooms.find((r) => r.id === managerRoomId);
+                            if (found) {
+                              setSelectedFloor(found.floorNumber);
+                              setSelectedRoomId(found.id);
+                            }
+                          }}
+                          className="text-[#FF5A16] underline font-bold ml-2 cursor-pointer"
+                        >
+                          Go to Room {managerRoomNumber}
+                        </button>
+                      </div>
+                    )}
 
                     {/* INTERACTIVE BED TOPOLOGY SELECTION GRID */}
                     {selectedRoom && (
@@ -1663,7 +2409,8 @@ export default function RegistrationDeskPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="font-rajdhani font-black text-xs uppercase tracking-wider text-slate-900">
-                              ROOM {selectedRoom.roomNumber} &bull; INTERACTIVE BED SELECTION (CLICK TO TOGGLE)
+                              {selectedHostel === "VINDHYA" ? "MANAGER ROOM" : "SQUAD ROOM"} {selectedRoom.roomNumber} &bull;{" "}
+                              {selectedHostel === "VINDHYA" ? "ALLOCATE 1 BED FOR MANAGER" : "INTERACTIVE BED SELECTION (CLICK TO TOGGLE)"}
                             </span>
                             <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full font-bold">
                               {availableBedsInRoom.length} / {selectedRoom.capacity || 5} Beds Available
@@ -1671,13 +2418,33 @@ export default function RegistrationDeskPage() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={handleSelectAllBeds}
-                              className="text-[11px] font-rajdhani font-bold text-[#FF5A16] hover:underline cursor-pointer flex items-center gap-1"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" /> Select All ({selectedRoom.beds.filter(b => b.status === "AVAILABLE").length} Available)
-                            </button>
+                            {selectedHostel === "VINDHYA" ? (
+                              managerBedId && managerRoomId === selectedRoom.id ? (
+                                <button
+                                  type="button"
+                                  onClick={handleClearManagerBed}
+                                  className="text-[11px] font-rajdhani font-bold text-red-600 hover:underline cursor-pointer flex items-center gap-1"
+                                >
+                                  <X className="w-3.5 h-3.5" /> Clear Manager Bed
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleAllocateManagerBed}
+                                  className="text-[11px] font-rajdhani font-bold text-[#FF5A16] hover:underline cursor-pointer flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" /> Allocate First Bed to Manager
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleSelectAllBeds}
+                                className="text-[11px] font-rajdhani font-bold text-[#FF5A16] hover:underline cursor-pointer flex items-center gap-1"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" /> Select All ({selectedRoom.beds.filter(b => b.status === "AVAILABLE").length} Available)
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1685,6 +2452,65 @@ export default function RegistrationDeskPage() {
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                           {selectedRoom.beds.map((bed) => {
                             const isAvailable = bed.status === "AVAILABLE";
+
+                            if (selectedHostel === "VINDHYA") {
+                              const isManagerAssigned = managerBedId === bed.id;
+                              const canSelect = isAvailable || isManagerAssigned;
+
+                              return (
+                                <button
+                                  key={bed.id}
+                                  type="button"
+                                  disabled={!canSelect}
+                                  onClick={() => handleToggleBedSelection(bed)}
+                                  className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer flex flex-col justify-between min-h-[92px] ${
+                                    isManagerAssigned
+                                      ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-2 ring-emerald-300/60"
+                                      : isAvailable
+                                        ? "bg-white border-slate-300 text-slate-800 hover:border-[#FF5A16] hover:bg-orange-50/50"
+                                        : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span className="font-rajdhani font-black text-xs uppercase">{bed.bedNumber}</span>
+                                    {isManagerAssigned ? (
+                                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">✓</span>
+                                    ) : isAvailable ? (
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    ) : (
+                                      <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                                    )}
+                                  </div>
+
+                                  <div className="py-1">
+                                    {isManagerAssigned ? (
+                                      <div className="space-y-0.5 text-left">
+                                        <div className="text-[10px] font-rajdhani font-black text-emerald-800 truncate">
+                                          ★ Team Manager
+                                        </div>
+                                        <div className="text-[11px] font-bold text-slate-900 truncate" title={managerName || "Team Manager"}>
+                                          {managerName.trim() || "Team Manager"}
+                                        </div>
+                                      </div>
+                                    ) : isAvailable ? (
+                                      <div className="text-[10px] font-mono text-slate-500">
+                                        Available (Click to allocate)
+                                      </div>
+                                    ) : (
+                                      <div className="text-[10px] font-mono text-slate-400">
+                                        Occupied
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="text-[9px] font-mono font-bold text-slate-400 pt-1 border-t border-slate-200/60">
+                                    {isManagerAssigned ? "ALLOCATED" : isAvailable ? "ALLOCATE" : "UNAVAILABLE"}
+                                  </div>
+                                </button>
+                              );
+                            }
+
+                            // SHALMALA (ATHLETES)
                             const assignedIndex = teamAthletes.findIndex((a) => a.bedId === bed.id);
                             const isAssigned = assignedIndex !== -1;
                             const assignedAthlete = isAssigned ? teamAthletes[assignedIndex] : null;
@@ -1693,14 +2519,15 @@ export default function RegistrationDeskPage() {
                               <button
                                 key={bed.id}
                                 type="button"
-                                disabled={!isAvailable}
+                                disabled={!isAvailable && !isAssigned}
                                 onClick={() => handleToggleBedSelection(bed)}
-                                className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer flex flex-col justify-between min-h-[92px] ${isAssigned
-                                  ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-2 ring-emerald-300/60"
-                                  : isAvailable
-                                    ? "bg-white border-slate-300 text-slate-800 hover:border-[#FF5A16] hover:bg-orange-50/50"
-                                    : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
-                                  }`}
+                                className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer flex flex-col justify-between min-h-[92px] ${
+                                  isAssigned
+                                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-2 ring-emerald-300/60"
+                                    : isAvailable
+                                      ? "bg-white border-slate-300 text-slate-800 hover:border-[#FF5A16] hover:bg-orange-50/50"
+                                      : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                                }`}
                               >
                                 <div className="flex items-center justify-between w-full">
                                   <span className="font-rajdhani font-black text-xs uppercase">{bed.bedNumber}</span>
@@ -1873,403 +2700,1028 @@ export default function RegistrationDeskPage() {
 
                 </div>
 
+                {/* ───────────────────────────────────────────────────────────── */}
+                {/* RECENTLY REGISTERED PARTICIPANTS & QUICK ROSTER LOOKUP */}
+                {/* (MERGED FROM REGISTERED PARTICIPANTS SLIDE) */}
+                {/* ───────────────────────────────────────────────────────────── */}
+                <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm space-y-4 p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <h3 className="font-rajdhani text-lg font-black text-slate-900 uppercase flex items-center gap-2">
+                        <Users className="w-5 h-5 text-[#FF5A16]" />
+                        RECENT REGISTERED PARTICIPANTS ({participantsList.length})
+                      </h3>
+                      <p className="text-xs text-slate-500 font-sans">
+                        Quick intake registry: verify athlete eligibility, inspect uploaded dossiers, or open passes directly
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search registered athletes &amp; managers..."
+                          value={searchFilter}
+                          onChange={(e) => setSearchFilter(e.target.value)}
+                          className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 w-64 focus:outline-none focus:border-[#FF5A16]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={fetchParticipants}
+                        className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 cursor-pointer"
+                        title="Refresh registry"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("ONBOARDED");
+                          fetchParticipants();
+                        }}
+                        className="px-3 py-2 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-xs font-bold uppercase rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        ONBOARDED TEAMS &amp; PASSES <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {loadingParticipants ? (
+                    <div className="p-8 text-center text-slate-400 font-rajdhani text-xs">
+                      LOADING PARTICIPANTS DATABASE...
+                    </div>
+                  ) : participantsList.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 font-rajdhani text-xs">
+                      NO PARTICIPANTS RECORDED YET. FILL IN THE FORM ABOVE TO REGISTER THE FIRST CONTINGENT.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200">
+                          <tr>
+                            <th className="p-3">PHOTO</th>
+                            <th className="p-3">PARTICIPANT NAME &amp; ID</th>
+                            <th className="p-3">UNIVERSITY</th>
+                            <th className="p-3">MOBILE</th>
+                            <th className="p-3">ROLE</th>
+                            <th className="p-3">QR STATUS</th>
+                            <th className="p-3">1 COMBINED PDF</th>
+                            <th className="p-3">ACCOMMODATION</th>
+                            <th className="p-3 text-right">ACTIONS</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-sans">
+                          {filteredParticipants.slice(0, 10).map((p) => (
+                            <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-3">
+                                <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-200 border border-slate-300">
+                                  {p.photoUrl ? (
+                                    <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <User className="w-4 h-4 text-slate-400 m-auto mt-2" />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-bold text-slate-900">{p.name}</div>
+                                <div className="font-mono text-[10px] text-[#FF5A16] font-bold">{p.playerId}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="text-slate-800">{p.institution}</div>
+                                <div className="text-[10px] text-slate-500">{p.state}</div>
+                              </td>
+                              <td className="p-3 text-slate-600 font-mono text-[11px]">{p.phone}</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${
+                                  p.role === "MANAGER"
+                                    ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
+                                    : p.role === "CAPTAIN"
+                                    ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
+                                    : "bg-slate-100 text-slate-700"
+                                }`}>
+                                  {p.role || "ATHLETE"}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                {p.documentsStatus === "VERIFIED" && p.qrToken ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-rajdhani text-[10px] font-black flex items-center gap-1 w-fit">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> ACTIVE ✓
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-300 font-rajdhani text-[10px] font-bold flex items-center gap-1 w-fit">
+                                    <Lock className="w-2.5 h-2.5 text-amber-500" /> LOCKED
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDocType("COMBINED_PDF");
+                                    setDocUploadParticipant(p);
+                                  }}
+                                  className={`px-2.5 py-0.5 rounded-full font-rajdhani text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${
+                                    p.documentsStatus === "VERIFIED"
+                                      ? "bg-emerald-50 text-emerald-800 border border-emerald-300 font-black"
+                                      : "bg-amber-50 text-amber-800 border border-amber-300"
+                                  }`}
+                                  title="Upload or view 1 Combined PDF dossier"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  {p.documentsStatus === "VERIFIED" ? "1 PDF ✓" : "1 PDF PENDING"}
+                                </button>
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${
+                                  p.accommodationStatus === "ALLOCATED"
+                                    ? "bg-slate-100 text-slate-900 border border-slate-300"
+                                    : "bg-amber-50 text-amber-800 border border-amber-300"
+                                }`}>
+                                  {p.room !== "—" ? `${p.hostel} (${p.room})` : "NOT ALLOCATED"}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (p.documents && p.documents.length > 0 && p.documents[0].filePath) {
+                                        window.open(p.documents[0].filePath, "_blank");
+                                      } else {
+                                        triggerNativeFileUpload(p);
+                                      }
+                                    }}
+                                    className={`px-2 py-1 font-rajdhani text-[10px] font-bold uppercase rounded-md flex items-center gap-1 cursor-pointer border ${
+                                      p.documentsStatus === "VERIFIED"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-black"
+                                        : "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                                    }`}
+                                    title={p.documentsStatus === "VERIFIED" ? "View verified PDF dossier" : "Upload 1 Combined PDF dossier from computer"}
+                                  >
+                                    <FileText className="w-3 h-3" />
+                                    {p.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedParticipantForPass(p)}
+                                    className="px-2.5 py-1 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-[10px] font-bold uppercase rounded-md cursor-pointer transition-colors flex items-center gap-1"
+                                  >
+                                    <QrCode className="w-3 h-3 text-[#FF5A16]" /> VIEW PASS
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {filteredParticipants.length > 10 && (
+                        <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("ONBOARDED");
+                              setOnboardedViewMode("REGISTRY");
+                              fetchParticipants();
+                            }}
+                            className="font-rajdhani text-xs font-bold text-[#FF5A16] hover:underline uppercase cursor-pointer"
+                          >
+                            Showing 10 of {filteredParticipants.length} participants &bull; View all in Onboarded Teams &amp; Passes →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
           </>
         )}
 
         {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* TAB 02: REGISTERED PARTICIPANTS LIST */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {activeTab === "REGISTERED" && (
-          <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm space-y-4 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="font-rajdhani text-xl font-black text-slate-900 uppercase">
-                  REGISTERED PARTICIPANTS REGISTRY ({participantsList.length})
-                </h2>
-                <p className="text-xs text-slate-500">Official tournament athlete &amp; manager accreditation database</p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by Name, ID, Mobile, University..."
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 w-64 focus:outline-none focus:border-[#FF5A16]"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={fetchParticipants}
-                  className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 cursor-pointer"
-                  title="Refresh list"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {loadingParticipants ? (
-              <div className="p-12 text-center text-slate-400 font-rajdhani text-sm">
-                LOADING PARTICIPANTS DATABASE...
-              </div>
-            ) : participantsList.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 font-rajdhani text-sm">
-                NO PARTICIPANTS RECORDED YET. CLICK &quot;01. FULL TEAM REGISTRATION&quot; TO BEGIN.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200">
-                    <tr>
-                      <th className="p-3">PHOTO</th>
-                      <th className="p-3">PARTICIPANT NAME &amp; ID</th>
-                      <th className="p-3">UNIVERSITY</th>
-                      <th className="p-3">MOBILE</th>
-                      <th className="p-3">ROLE</th>
-                      <th className="p-3">QR STATUS</th>
-                      <th className="p-3">DOCUMENTS</th>
-                      <th className="p-3">PAYMENT</th>
-                      <th className="p-3">ACCOMMODATION</th>
-                      <th className="p-3 text-right">ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
-                    {participantsList
-                      .filter((p) => {
-                        if (!searchFilter.trim()) return true;
-                        const q = searchFilter.toLowerCase();
-                        return (
-                          p.name.toLowerCase().includes(q) ||
-                          p.playerId.toLowerCase().includes(q) ||
-                          p.phone.includes(q) ||
-                          p.institution.toLowerCase().includes(q)
-                        );
-                      })
-                      .map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3">
-                            <div className="w-9 h-9 rounded-lg overflow-hidden bg-slate-200 border border-slate-300">
-                              {p.photoUrl ? (
-                                <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <User className="w-5 h-5 text-slate-400 m-auto mt-2" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="font-bold text-slate-900">{p.name}</div>
-                            <div className="font-mono text-[11px] text-[#FF5A16] font-bold">{p.playerId}</div>
-                          </td>
-                          <td className="p-3">
-                            <div className="text-slate-800">{p.institution}</div>
-                            <div className="text-[10px] text-slate-500">{p.state}</div>
-                          </td>
-                          <td className="p-3 text-slate-600 font-mono text-[11px]">{p.phone}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${p.role === "MANAGER"
-                              ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
-                              : p.role === "CAPTAIN"
-                                ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
-                                : "bg-slate-100 text-slate-700"
-                              }`}>
-                              {p.role || "ATHLETE"}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-rajdhani text-[10px] font-black">
-                              QR ACTIVE ✓
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <button
-                              type="button"
-                              onClick={() => setDocUploadParticipant(p)}
-                              className={`px-2.5 py-0.5 rounded-full font-rajdhani text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${p.documentsStatus === "VERIFIED"
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-300 font-black"
-                                : "bg-amber-50 text-amber-800 border border-amber-300"
-                                }`}
-                            >
-                              <FileText className="w-3 h-3" />
-                              {p.documentsStatus}
-                            </button>
-                          </td>
-                          <td className="p-3">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-rajdhani text-[10px] font-black">
-                              ₹{p.amountPaid || 0} ({p.paymentMethod || "PAID"})
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${p.accommodationStatus === "ALLOCATED"
-                              ? "bg-slate-100 text-slate-900 border border-slate-300"
-                              : "bg-amber-50 text-amber-800 border border-amber-300"
-                              }`}>
-                              {p.room !== "—" ? `${p.hostel} (${p.room})` : "NOT ALLOCATED"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedParticipantForQr(p)}
-                                className="px-2 py-1 bg-slate-900 text-white font-rajdhani text-[10px] font-bold uppercase rounded-md"
-                              >
-                                QR
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDocUploadParticipant(p)}
-                                className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-rajdhani text-[10px] font-bold uppercase rounded-md"
-                              >
-                                DOCS
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedParticipantForPass(p)}
-                                className="px-2 py-1 bg-[#FF5A16] text-white font-rajdhani text-[10px] font-bold uppercase rounded-md"
-                              >
-                                PASS
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* TAB 03: ONBOARDED TEAMS & PASSES */}
+        {/* TAB 02: ONBOARDED TEAMS & PASSES (MERGED WITH PARTICIPANT REGISTRY) */}
         {/* ═══════════════════════════════════════════════════════════════ */}
         {activeTab === "ONBOARDED" && (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-xs">
               <div>
-                <h2 className="font-rajdhani text-2xl text-slate-900 font-black uppercase">
-                  ONBOARDED UNIVERSITY TEAMS &amp; PASSES ({groupedByInstitution.length})
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Accredited University Contingents, athlete rosters, passes, and desk audit slips
-                </p>
-              </div>
-            </div>
-
-            {groupedByInstitution.length === 0 ? (
-              <div className="bg-white border-2 border-slate-200 rounded-2xl p-12 text-center text-slate-400 font-rajdhani text-sm">
-                NO ONBOARDED TEAMS YET. COMPLETE REGISTRATIONS TO POPULATE CONTINGENTS.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {groupedByInstitution.map((team) => (
-                  <div key={team.institution} className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-                    <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-                      <div>
-                        <span className="px-2 py-0.5 rounded-full bg-orange-100 text-[#FF5A16] font-rajdhani text-[10px] font-bold uppercase">
-                          {team.state}
-                        </span>
-                        <h3 className="font-rajdhani text-lg font-black text-slate-900 uppercase mt-1">
-                          {team.institution}
-                        </h3>
-                        <p className="text-xs text-slate-500 font-mono">
-                          {team.participants.length} Registered Members &bull; Total Paid: ₹{team.totalPaid.toLocaleString()}
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-full font-rajdhani text-xs font-black">
-                        ACCREDITED ✓
-                      </span>
-                    </div>
-
-                    {/* Member Avatars */}
-                    <div className="space-y-2">
-                      <span className="font-rajdhani text-xs font-bold text-slate-600 uppercase">CONTINGENT ROSTER</span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {team.participants.map((member) => (
-                          <div key={member.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
-                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-200 shrink-0">
-                              {member.photoUrl ? (
-                                <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <User className="w-4 h-4 text-slate-400 m-auto mt-2" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-bold text-slate-900 text-xs truncate">{member.name}</div>
-                              <div className="text-[10px] text-[#FF5A16] font-mono">{member.playerId} &bull; {member.role}</div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedParticipantForPass(member)}
-                              className="px-2 py-1 bg-slate-900 hover:bg-[#FF5A16] text-white rounded text-[10px] font-bold uppercase shrink-0 cursor-pointer"
-                            >
-                              PASS
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* TAB 04: DOCUMENT VERIFICATION & UPLOADS QUEUE */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {activeTab === "DOCUMENTS" && (
-          <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm space-y-4 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="font-rajdhani text-xl font-black text-slate-900 uppercase flex items-center gap-2">
-                  <FileBadge className="w-5 h-5 text-[#FF5A16]" />
-                  DOCUMENT VERIFICATION &amp; UPLOAD QUEUE
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Inspect student University IDs, SSLC &amp; PUC certificates, and upload documents directly or via Mobile Scanner
+                <div className="flex items-center gap-2">
+                  <h2 className="font-rajdhani text-2xl text-slate-900 font-black uppercase">
+                    ONBOARDED UNIVERSITY TEAMS &amp; PASSES
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-[#FF5A16] font-rajdhani text-xs font-bold">
+                    {filteredTeams.length} Teams
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-rajdhani text-xs font-bold">
+                    {filteredParticipants.length} Participants
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-sans mt-0.5">
+                  Accredited University Contingents, athlete rosters, credentials, and full participant registry
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/scanner"
-                  className="px-4 py-2 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-xs font-black uppercase rounded-xl flex items-center gap-1.5 shadow-xs"
-                >
-                  <Camera className="w-4 h-4" /> LAUNCH CAMERA SCANNER (/scanner)
-                </Link>
+              {/* View Mode Toggle: Teams (Cards) vs Registry (Table) */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
                 <button
                   type="button"
-                  onClick={fetchParticipants}
-                  className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 cursor-pointer"
-                  title="Refresh list"
+                  onClick={() => setOnboardedViewMode("TEAMS")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-rajdhani text-xs font-bold uppercase transition-all cursor-pointer ${
+                    onboardedViewMode === "TEAMS"
+                      ? "bg-white text-slate-900 shadow-xs font-black border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <Grid className="w-3.5 h-3.5 text-[#FF5A16]" />
+                  UNIVERSITY CONTINGENTS ({filteredTeams.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOnboardedViewMode("REGISTRY")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-rajdhani text-xs font-bold uppercase transition-all cursor-pointer ${
+                    onboardedViewMode === "REGISTRY"
+                      ? "bg-white text-slate-900 shadow-xs font-black border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5 text-[#FF5A16]" />
+                  FULL PARTICIPANTS REGISTRY ({filteredParticipants.length})
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {participantsList.map((p) => (
-                <div key={p.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
-                      {p.photoUrl ? (
-                        <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-6 h-6 text-slate-400 m-auto mt-3" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-slate-900 text-sm truncate">{p.name}</div>
-                      <div className="font-mono text-[11px] text-[#FF5A16] font-bold">{p.playerId} &bull; {p.role}</div>
-                      <div className="text-[11px] text-slate-500 truncate">{p.institution}</div>
-                    </div>
-                  </div>
+            {/* Filter & Search Bar */}
+            <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[300px]">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by Name, ID, Mobile, University, or State..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#FF5A16]"
+                  />
+                </div>
 
-                  {/* Documents Status */}
-                  <div className="space-y-1.5 text-[11px] font-sans">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-600">Verification Status:</span>
-                      <span className={`font-rajdhani font-black px-2 py-0.5 rounded text-[10px] ${p.documentsStatus === "VERIFIED"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-amber-100 text-amber-800"
-                        }`}>
-                        {p.documentsStatus}
-                      </span>
-                    </div>
+                {/* State Filter */}
+                <select
+                  value={stateFilter}
+                  onChange={(e) => setStateFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 px-3 py-2 focus:outline-none focus:border-[#FF5A16]"
+                >
+                  <option value="ALL">All States ({SOUTH_ZONE_STATES.length})</option>
+                  {SOUTH_ZONE_STATES.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
 
-                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                      <span>Uploaded Files:</span>
-                      <span>{p.documents?.length || 0} Files Attached</span>
-                    </div>
-                  </div>
+                {/* Document / Accreditation Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 px-3 py-2 focus:outline-none focus:border-[#FF5A16]"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="VERIFIED">Accredited / Verified ✓</option>
+                  <option value="PENDING">Documents Pending</option>
+                </select>
+              </div>
 
-                  <div className="pt-2 border-t border-slate-200 flex gap-2">
+              <div className="flex items-center gap-2">
+                {/* Form Toggle: TABLE vs CARDS */}
+                {onboardedViewMode === "TEAMS" && (
+                  <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
                     <button
                       type="button"
-                      onClick={() => setDocUploadParticipant(p)}
-                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-rajdhani text-xs font-bold uppercase rounded-lg flex items-center justify-center gap-1 cursor-pointer"
+                      onClick={() => setTeamsDisplayMode("TABLE")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-rajdhani text-xs font-bold uppercase transition-all cursor-pointer ${
+                        teamsDisplayMode === "TABLE"
+                          ? "bg-white text-slate-900 shadow-xs font-black border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Display contingents in tabular form"
                     >
-                      <Upload className="w-3.5 h-3.5" /> UPLOAD DOC
+                      <Table className="w-3.5 h-3.5 text-[#FF5A16]" /> TABULAR FORM
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedParticipantForQr(p)}
-                      className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-rajdhani text-xs font-bold uppercase rounded-lg cursor-pointer"
-                      title="View QR for mobile scanner"
+                      onClick={() => setTeamsDisplayMode("CARDS")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-rajdhani text-xs font-bold uppercase transition-all cursor-pointer ${
+                        teamsDisplayMode === "CARDS"
+                          ? "bg-white text-slate-900 shadow-xs font-black border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      title="Display contingents as card grid"
                     >
-                      <QrCode className="w-3.5 h-3.5" />
+                      <Grid className="w-3.5 h-3.5 text-[#FF5A16]" /> CARDS
                     </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={fetchParticipants}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 cursor-pointer flex items-center gap-1.5 font-rajdhani text-xs font-bold"
+                  title="Refresh list"
+                >
+                  <RefreshCw className="w-4 h-4" /> REFRESH
+                </button>
+              </div>
+            </div>
+
+            {/* CONTINGENTS VIEW (TABULAR FORM OR CARDS) */}
+            {onboardedViewMode === "TEAMS" && (
+              <>
+                {filteredTeams.length === 0 ? (
+                  <div className="bg-white border-2 border-slate-200 rounded-2xl p-12 text-center text-slate-400 font-rajdhani text-sm">
+                    NO ONBOARDED TEAMS MATCHING FILTERS. ADJUST SEARCH OR COMPLETE NEW REGISTRATIONS.
+                  </div>
+                ) : teamsDisplayMode === "TABLE" ? (
+                  /* TABULAR FORM FOR UNIVERSITY CONTINGENTS */
+                  <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-xs space-y-0">
+                    <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+                      <div>
+                        <h3 className="font-rajdhani text-lg font-black text-slate-900 uppercase flex items-center gap-2">
+                          <GraduationCap className="w-5 h-5 text-[#FF5A16]" />
+                          ONBOARDED UNIVERSITY CONTINGENTS ({filteredTeams.length} TEAMS)
+                        </h3>
+                        <p className="text-xs text-slate-500 font-sans">
+                          Click any University Name or &quot;VIEW PASSES&quot; to inspect full roster, credentials &amp; official passes
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-slate-600 bg-white px-3 py-1 rounded-xl border border-slate-200">
+                          {filteredTeams.reduce((acc, t) => acc + t.participants.length, 0)} Total Athletes &amp; Managers
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200">
+                          <tr>
+                            <th className="p-3.5">UNIVERSITY / INSTITUTION</th>
+                            <th className="p-3.5">STATE</th>
+                            <th className="p-3.5">REGISTERED MEMBERS</th>
+                            <th className="p-3.5">FEES PAID</th>
+                            <th className="p-3.5">ACCREDITATION STATUS</th>
+                            <th className="p-3.5">SQUAD ROSTER</th>
+                            <th className="p-3.5 text-right">ACTION</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-sans">
+                          {filteredTeams.map((team) => {
+                            const isExpanded = expandedTeamId === team.institution;
+                            const isAccredited = team.participants.every((p) => p.documentsStatus === "VERIFIED");
+                            const verifiedCount = team.participants.filter((p) => p.documentsStatus === "VERIFIED").length;
+
+                            return (
+                              <React.Fragment key={team.institution}>
+                                <tr className="hover:bg-slate-50/80 transition-colors">
+                                  {/* University Name (Clickable) */}
+                                  <td className="p-3.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedTeamName(team.institution)}
+                                      className="text-left group cursor-pointer focus:outline-none"
+                                      title="Click to view full team roster & official passes"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <GraduationCap className="w-4 h-4 text-[#FF5A16] group-hover:scale-110 transition-transform shrink-0" />
+                                        <span className="font-rajdhani font-black text-sm text-slate-900 uppercase group-hover:text-[#FF5A16] transition-colors">
+                                          {team.institution}
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 group-hover:text-slate-600 font-sans mt-0.5">
+                                        Click to view roster, passes &amp; documents &rarr;
+                                      </div>
+                                    </button>
+                                  </td>
+
+                                  {/* State Badge */}
+                                  <td className="p-3.5">
+                                    <span className="px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-[#FF5A16] font-rajdhani text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A16]" />
+                                      {team.state}
+                                    </span>
+                                  </td>
+
+                                  {/* Member Count Badge */}
+                                  <td className="p-3.5">
+                                    <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 font-rajdhani text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs">
+                                      <Users className="w-3.5 h-3.5 text-slate-600" />
+                                      {team.participants.length} MEMBERS
+                                    </span>
+                                  </td>
+
+                                  {/* Fees Paid Badge */}
+                                  <td className="p-3.5">
+                                    <span className="px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-rajdhani text-xs font-black uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs">
+                                      ₹{team.totalPaid.toLocaleString()} PAID
+                                    </span>
+                                  </td>
+
+                                  {/* Accreditation Status */}
+                                  <td className="p-3.5">
+                                    {isAccredited ? (
+                                      <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-full font-rajdhani text-xs font-black inline-flex items-center gap-1">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> ACCREDITED ✓
+                                      </span>
+                                    ) : (
+                                      <span className="px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-800 rounded-full font-rajdhani text-xs font-bold inline-flex items-center gap-1">
+                                        <Clock className="w-3.5 h-3.5 text-amber-600" /> DOCS PENDING ({verifiedCount}/{team.participants.length})
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Squad Roster Mini Avatars */}
+                                  <td className="p-3.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex -space-x-1.5 overflow-hidden">
+                                        {team.participants.slice(0, 5).map((p) => (
+                                          <div
+                                            key={p.id}
+                                            className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-slate-200 overflow-hidden shrink-0"
+                                            title={`${p.name} (${p.role})`}
+                                          >
+                                            {p.photoUrl ? (
+                                              <img src={p.photoUrl} alt={p.name} className="h-full w-full object-cover" />
+                                            ) : (
+                                              <User className="h-3 w-3 text-slate-400 m-auto mt-1.5" />
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <span className="text-[11px] text-slate-500 font-mono">
+                                        {team.participants.length} pax
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  {/* Actions */}
+                                  <td className="p-3.5 text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedTeamName(team.institution)}
+                                        className="py-1.5 px-3 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-xs font-black uppercase rounded-xl shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+                                        title="View Full Team Roster, Dossiers, & Passes"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" /> VIEW PASSES ({team.participants.length})
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedTeamId(isExpanded ? null : team.institution)}
+                                        className="p-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl cursor-pointer transition-colors"
+                                        title={isExpanded ? "Collapse inline roster" : "Expand inline roster"}
+                                      >
+                                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* Inline Expanded Roster Row */}
+                                {isExpanded && (
+                                  <tr className="bg-slate-50/90">
+                                    <td colSpan={7} className="p-4 border-y border-slate-200">
+                                      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs space-y-2 p-3">
+                                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                          <span className="font-rajdhani text-xs font-black uppercase text-slate-900">
+                                            {team.institution} &bull; FULL SQUAD ROSTER ({team.participants.length} MEMBERS)
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setSelectedTeamName(team.institution)}
+                                            className="text-[#FF5A16] hover:underline font-rajdhani text-xs font-bold uppercase inline-flex items-center gap-1 cursor-pointer"
+                                          >
+                                            OPEN IN FULL MODAL &rarr;
+                                          </button>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                          <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-50 text-slate-600 font-rajdhani font-black uppercase border-b border-slate-200">
+                                              <tr>
+                                                <th className="p-2">MEMBER</th>
+                                                <th className="p-2">ROLE</th>
+                                                <th className="p-2">PHONE</th>
+                                                <th className="p-2">ROOM</th>
+                                                <th className="p-2">1 PDF</th>
+                                                <th className="p-2 text-right">ACTION</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 font-sans">
+                                              {team.participants.map((m) => (
+                                                <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                                                  <td className="p-2">
+                                                    <div className="flex items-center gap-2">
+                                                      <div className="w-7 h-7 rounded-md overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
+                                                        {m.photoUrl ? (
+                                                          <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                          <User className="w-3.5 h-3.5 text-slate-400 m-auto mt-1" />
+                                                        )}
+                                                      </div>
+                                                      <div>
+                                                        <div className="font-bold text-slate-900 text-xs">{m.name}</div>
+                                                        <div className="font-mono text-[9px] text-[#FF5A16] font-bold">{m.playerId}</div>
+                                                      </div>
+                                                    </div>
+                                                  </td>
+                                                  <td className="p-2">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                                      m.role === "MANAGER"
+                                                        ? "bg-purple-100 text-purple-800"
+                                                        : m.role === "CAPTAIN"
+                                                        ? "bg-orange-100 text-[#FF5A16]"
+                                                        : "bg-slate-100 text-slate-700"
+                                                    }`}>
+                                                      {m.role}
+                                                    </span>
+                                                  </td>
+                                                  <td className="p-2 font-mono text-[10px] text-slate-600">{m.phone}</td>
+                                                  <td className="p-2 text-[10px] text-slate-700">
+                                                    {m.room !== "—" ? `${m.hostel} (${m.room})` : "None"}
+                                                  </td>
+                                                  <td className="p-2">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => triggerNativeFileUpload(m)}
+                                                      className={`px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer border ${
+                                                        m.documentsStatus === "VERIFIED"
+                                                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                                          : "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                                                      }`}
+                                                      title="Upload 1 Combined PDF via system file selector"
+                                                    >
+                                                      {m.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF"}
+                                                    </button>
+                                                  </td>
+                                                  <td className="p-2 text-right">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => setSelectedParticipantForPass(m)}
+                                                      className="px-2.5 py-1 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded text-[10px] font-bold uppercase cursor-pointer"
+                                                    >
+                                                      VIEW PASS
+                                                    </button>
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* CARDS GRID (existing layout from screenshot) */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredTeams.map((team) => {
+                      const isExpanded = expandedTeamId === team.institution;
+                      const isAccredited = team.participants.every((p) => p.documentsStatus === "VERIFIED");
+                      const verifiedCount = team.participants.filter((p) => p.documentsStatus === "VERIFIED").length;
+
+                      return (
+                        <div key={team.institution} className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 transition-colors">
+                          {/* Card Header with Clickable University Name and Status */}
+                          <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTeamName(team.institution)}
+                              className="text-left group cursor-pointer flex-1 focus:outline-none"
+                              title="Click to view full team roster & official passes"
+                            >
+                              <div className="flex items-center gap-2">
+                                <GraduationCap className="w-5 h-5 text-[#FF5A16] group-hover:scale-110 transition-transform shrink-0" />
+                                <h3 className="font-rajdhani text-lg sm:text-xl font-black text-slate-900 uppercase group-hover:text-[#FF5A16] transition-colors">
+                                  {team.institution}
+                                </h3>
+                              </div>
+                              <p className="text-[11px] text-slate-500 font-sans mt-0.5 group-hover:text-slate-700">
+                                Click university name to view roster, passes &amp; documents &rarr;
+                              </p>
+                            </button>
+
+                            <div className="shrink-0">
+                              {isAccredited ? (
+                                <span className="px-2.5 py-1 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-full font-rajdhani text-xs font-black inline-flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> ACCREDITED ✓
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-800 rounded-full font-rajdhani text-xs font-bold inline-flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" /> DOCS PENDING ({verifiedCount}/{team.participants.length})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* SEPARATE VISUAL BUTTONS / BADGES: State, Member Count, Total Paid */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* State Badge */}
+                            <span className="px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-[#FF5A16] font-rajdhani text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-[#FF5A16]" />
+                              {team.state}
+                            </span>
+
+                            {/* Registered Member Count Badge */}
+                            <span className="px-3 py-1 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 font-rajdhani text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs">
+                              <Users className="w-3.5 h-3.5 text-slate-600" />
+                              {team.participants.length} REGISTERED {team.participants.length === 1 ? "MEMBER" : "MEMBERS"}
+                            </span>
+
+                            {/* Total Paid Badge */}
+                            <span className="px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-rajdhani text-xs font-black uppercase tracking-wider inline-flex items-center gap-1 shadow-2xs">
+                              ₹{team.totalPaid.toLocaleString()} PAID
+                            </span>
+                          </div>
+
+                          {/* Action Controls: Open Modal Roster OR Inline Expand */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTeamName(team.institution)}
+                              className="flex-1 py-2 px-3 bg-slate-900 hover:bg-[#FF5A16] text-white font-rajdhani text-xs font-black uppercase rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                            >
+                              <Eye className="w-4 h-4" /> VIEW TEAM DETAILS &amp; PASSES ({team.participants.length})
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setExpandedTeamId(isExpanded ? null : team.institution)}
+                              className="py-2 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Toggle quick inline roster"
+                            >
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              {isExpanded ? "HIDE" : "ROSTER"}
+                            </button>
+                          </div>
+
+                          {/* Quick Inline Roster (if toggled) */}
+                          {isExpanded && (
+                            <div className="pt-2 border-t border-slate-100 space-y-2">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead className="bg-slate-50 text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200">
+                                    <tr>
+                                      <th className="p-2">MEMBER</th>
+                                      <th className="p-2">ROLE</th>
+                                      <th className="p-2">PHONE</th>
+                                      <th className="p-2">ROOM</th>
+                                      <th className="p-2">1 PDF</th>
+                                      <th className="p-2 text-right">ACTION</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 font-sans">
+                                    {team.participants.map((m) => (
+                                      <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="p-2">
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-md overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
+                                              {m.photoUrl ? (
+                                                <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />
+                                              ) : (
+                                                <User className="w-3.5 h-3.5 text-slate-400 m-auto mt-1" />
+                                              )}
+                                            </div>
+                                            <div>
+                                              <div className="font-bold text-slate-900 text-xs">{m.name}</div>
+                                              <div className="font-mono text-[9px] text-[#FF5A16] font-bold">{m.playerId}</div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="p-2">
+                                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                            m.role === "MANAGER"
+                                              ? "bg-purple-100 text-purple-800"
+                                              : m.role === "CAPTAIN"
+                                              ? "bg-orange-100 text-[#FF5A16]"
+                                              : "bg-slate-100 text-slate-700"
+                                          }`}>
+                                            {m.role}
+                                          </span>
+                                        </td>
+                                        <td className="p-2 font-mono text-[10px] text-slate-600">{m.phone}</td>
+                                        <td className="p-2 text-[10px] text-slate-700">
+                                          {m.room !== "—" ? `${m.hostel} (${m.room})` : "None"}
+                                        </td>
+                                        <td className="p-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => triggerNativeFileUpload(m)}
+                                            className={`px-2 py-0.5 rounded text-[9px] font-bold cursor-pointer border ${
+                                              m.documentsStatus === "VERIFIED"
+                                                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                                : "bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                                            }`}
+                                            title="Upload 1 Combined PDF via system file selector"
+                                          >
+                                            {m.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF"}
+                                          </button>
+                                        </td>
+                                        <td className="p-2 text-right">
+                                          <button
+                                            type="button"
+                                            onClick={() => setSelectedParticipantForPass(m)}
+                                            className="px-2.5 py-1 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded text-[10px] font-bold uppercase cursor-pointer"
+                                          >
+                                            VIEW PASS
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* FULL PARTICIPANTS REGISTRY (MERGED TABLE VIEW) */}
+            {onboardedViewMode === "REGISTRY" && (
+              <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm space-y-4 p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="font-rajdhani text-xl font-black text-slate-900 uppercase">
+                      REGISTERED PARTICIPANTS REGISTRY ({filteredParticipants.length})
+                    </h3>
+                    <p className="text-xs text-slate-500">Official tournament athlete &amp; manager accreditation database</p>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {loadingParticipants ? (
+                  <div className="p-12 text-center text-slate-400 font-rajdhani text-sm">
+                    LOADING PARTICIPANTS DATABASE...
+                  </div>
+                ) : filteredParticipants.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 font-rajdhani text-sm">
+                    NO PARTICIPANTS RECORDED YET. CLICK &quot;01. FULL TEAM REGISTRATION&quot; TO BEGIN.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">PHOTO</th>
+                          <th className="p-3">PARTICIPANT NAME &amp; ID</th>
+                          <th className="p-3">UNIVERSITY</th>
+                          <th className="p-3">MOBILE</th>
+                          <th className="p-3">ROLE</th>
+                          <th className="p-3">STATUS</th>
+                          <th className="p-3">1 COMBINED PDF</th>
+                          <th className="p-3">PAYMENT</th>
+                          <th className="p-3">ACCOMMODATION</th>
+                          <th className="p-3 text-right">ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-sans">
+                        {filteredParticipants.map((p) => (
+                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3">
+                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-slate-200 border border-slate-300">
+                                {p.photoUrl ? (
+                                  <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <User className="w-5 h-5 text-slate-400 m-auto mt-2" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900">{p.name}</div>
+                              <div className="font-mono text-[11px] text-[#FF5A16] font-bold">{p.playerId}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-slate-800">{p.institution}</div>
+                              <div className="text-[10px] text-slate-500">{p.state}</div>
+                            </td>
+                            <td className="p-3 text-slate-600 font-mono text-[11px]">{p.phone}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${
+                                p.role === "MANAGER"
+                                  ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
+                                  : p.role === "CAPTAIN"
+                                  ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}>
+                                {p.role || "ATHLETE"}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              {p.documentsStatus === "VERIFIED" ? (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-rajdhani text-[10px] font-black flex items-center gap-1 w-fit">
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> ACCREDITED ✓
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 font-rajdhani text-[10px] font-bold flex items-center gap-1 w-fit">
+                                  <Clock className="w-2.5 h-2.5 text-amber-600" /> DOCS PENDING
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <button
+                                type="button"
+                                onClick={() => triggerNativeFileUpload(p)}
+                                className={`px-2.5 py-0.5 rounded-full font-rajdhani text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${
+                                  p.documentsStatus === "VERIFIED"
+                                    ? "bg-emerald-50 text-emerald-800 border border-emerald-300 font-black"
+                                    : "bg-blue-50 text-blue-800 border border-blue-300"
+                                }`}
+                                title="Click to upload 1 Combined PDF via system file selector"
+                              >
+                                <FileText className="w-3 h-3" />
+                                {p.documentsStatus === "VERIFIED" ? "1 COMBINED PDF ✓" : "UPLOAD 1 PDF"}
+                              </button>
+                            </td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 font-rajdhani text-[10px] font-black">
+                                ₹{p.amountPaid || 0} ({p.paymentMethod || "PAID"})
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-bold ${
+                                p.accommodationStatus === "ALLOCATED"
+                                  ? "bg-slate-100 text-slate-900 border border-slate-300"
+                                  : "bg-amber-50 text-amber-800 border border-amber-300"
+                              }`}>
+                                {p.room !== "—" ? `${p.hostel} (${p.room})` : "NOT ALLOCATED"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => triggerNativeFileUpload(p)}
+                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-rajdhani text-[10px] font-bold uppercase rounded-md flex items-center gap-1 cursor-pointer"
+                                  title="Upload 1 Combined PDF via system file selector"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  1 PDF
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedParticipantForPass(p)}
+                                  className="px-2.5 py-1 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-[10px] font-bold uppercase rounded-md cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="View Official Accreditation Pass"
+                                >
+                                  <Eye className="w-3 h-3" /> VIEW PASS
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
       </main>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* MODAL 0: DIRECT DOCUMENT UPLOAD MODAL */}
+      {/* MODAL 0: DIRECT DOCUMENT UPLOAD MODAL (1 COMBINED PDF) */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {docUploadParticipant && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-            <div className="bg-white border-2 border-blue-500 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="bg-white border-2 border-[#FF5A16] rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <FileBadge className="w-5 h-5 text-blue-600" />
+                  <FileText className="w-5 h-5 text-[#FF5A16]" />
                   <h3 className="font-rajdhani text-base font-black text-slate-900 uppercase">
-                    UPLOAD VERIFICATION DOCUMENT
+                    UPLOAD 1 COMBINED PDF (VERIFICATION DOSSIER)
                   </h3>
                 </div>
-                <button type="button" onClick={() => setDocUploadParticipant(null)} className="p-1 text-slate-400 hover:text-slate-700">
+                <button type="button" onClick={() => setDocUploadParticipant(null)} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl space-y-1 text-xs">
-                <div className="font-bold text-slate-900">{docUploadParticipant.name}</div>
+              {/* Participant Info Banner */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-sm">{docUploadParticipant.name}</span>
+                  <span className={`px-2 py-0.5 rounded font-rajdhani text-[10px] font-black uppercase ${
+                    docUploadParticipant.role === "MANAGER"
+                      ? "bg-purple-100 text-purple-800"
+                      : "bg-orange-100 text-[#FF5A16]"
+                  }`}>
+                    {docUploadParticipant.role || "ATHLETE"}
+                  </span>
+                </div>
                 <div className="font-mono text-[11px] text-[#FF5A16]">{docUploadParticipant.playerId} &bull; {docUploadParticipant.institution}</div>
               </div>
 
-              <div>
-                <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-                  DOCUMENT TYPE *
-                </label>
-                <select
-                  value={selectedDocType}
-                  onChange={(e) => setSelectedDocType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-500 text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
-                >
-                  <option value="UNIVERSITY_ID">University ID Card</option>
-                  <option value="SSLC">SSLC / 10th Marks Card</option>
-                  <option value="PUC">PUC / 12th Marks Card</option>
-                  <option value="AADHAAR">Identity / Aadhaar Card Document</option>
-                  <option value="OTHER">Other Official Document</option>
-                </select>
+              {/* Role Dossier Guidance (Tab 01 aligned) */}
+              <div className="p-3 bg-orange-50/70 border border-orange-200 rounded-xl space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-rajdhani font-black text-slate-900 uppercase">
+                  <FileText className="w-3.5 h-3.5 text-[#FF5A16]" />
+                  {docUploadParticipant.role === "MANAGER"
+                    ? "MANAGER DOCUMENTS (1 COMBINED PDF: ID CARD, APPOINTMENT ORDER)"
+                    : "ATHLETE DOCUMENTS (1 COMBINED PDF: ID CARD, SSLC, PUC / ELIGIBILITY)"}
+                </div>
+                <p className="text-[11px] text-slate-600 font-sans leading-snug">
+                  {docUploadParticipant.role === "MANAGER"
+                    ? "Upload a single consolidated PDF dossier containing University ID card and official appointment/deputation order."
+                    : "Upload a single consolidated PDF dossier containing University ID card, SSLC/10th marks card, and PUC/12th marks card."}
+                </p>
               </div>
 
-              <div>
-                <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-                  SELECT DOCUMENT FILE (IMAGE OR PDF) *
-                </label>
-                <label className="w-full p-4 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-50 hover:bg-blue-50/50 transition-colors">
-                  <Upload className="w-6 h-6 text-slate-500" />
-                  <span className="font-rajdhani text-xs font-bold uppercase text-slate-700">
-                    {uploadingDoc ? "UPLOADING & VERIFYING..." : "CLICK TO CHOOSE FILE & UPLOAD"}
+              {/* Existing Attached Documents (if any) */}
+              {docUploadParticipant.documents && docUploadParticipant.documents.length > 0 && (
+                <div className={`p-3 rounded-xl space-y-2 border ${
+                  docUploadParticipant.documentsStatus === "VERIFIED"
+                    ? "bg-emerald-50/70 border-emerald-300"
+                    : "bg-amber-50/70 border-amber-300"
+                }`}>
+                  <div className="text-[11px] font-rajdhani font-black uppercase tracking-wide flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-slate-800">
+                      <FileCheck className="w-3.5 h-3.5 text-[#FF5A16]" />
+                      ATTACHED DOSSIER ({docUploadParticipant.documents.length})
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      docUploadParticipant.documentsStatus === "VERIFIED"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}>
+                      {docUploadParticipant.documentsStatus === "VERIFIED" ? "VERIFIED ✓" : "PENDING VERIFICATION"}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                    {docUploadParticipant.documents.map((d) => (
+                      <div key={d.id} className="flex items-center justify-between text-[11px] font-mono text-slate-700 bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200">
+                        <span className="truncate max-w-[240px]" title={d.fileName}>{d.fileName}</span>
+                        <span className={`text-[10px] font-bold shrink-0 ${d.status === "VERIFIED" ? "text-emerald-700" : "text-amber-700"}`}>
+                          {d.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* If documents uploaded but not verified, show direct Verify & Issue QR button */}
+                  {docUploadParticipant.documentsStatus !== "VERIFIED" && (
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyDocumentsForParticipant(docUploadParticipant.id)}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-xs font-black uppercase rounded-lg flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" /> VERIFY DOSSIER &amp; GENERATE QR PASS
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* File Upload Zone (Combined PDF Only) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {docUploadParticipant.documents && docUploadParticipant.documents.length > 0 ? "REPLACE / RE-UPLOAD 1 COMBINED PDF *" : "SELECT 1 COMBINED PDF DOSSIER *"}
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[11px] font-mono text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoVerifyDossier}
+                      onChange={(e) => setAutoVerifyDossier(e.target.checked)}
+                      className="rounded text-[#FF5A16] focus:ring-[#FF5A16]"
+                    />
+                    <span>Verify &amp; Issue QR on upload</span>
+                  </label>
+                </div>
+                <label className="w-full p-6 border-2 border-dashed border-[#FF5A16]/60 hover:border-[#FF5A16] rounded-xl flex flex-col items-center justify-center gap-2.5 cursor-pointer bg-orange-50/30 hover:bg-orange-50/70 transition-colors shadow-2xs">
+                  {uploadingDoc ? (
+                    <RefreshCw className="w-7 h-7 text-[#FF5A16] animate-spin" />
+                  ) : (
+                    <Upload className="w-7 h-7 text-[#FF5A16]" />
+                  )}
+                  <span className="font-rajdhani text-sm font-black uppercase text-slate-800 tracking-wider">
+                    {uploadingDoc ? "COMPRESSING & UPLOADING PDF..." : autoVerifyDossier ? "UPLOAD & VERIFY 1 COMBINED PDF" : "UPLOAD 1 COMBINED PDF"}
                   </span>
-                  <span className="text-[10px] text-slate-400">Supports JPEG, PNG, or PDF</span>
+                  <span className="text-[11px] text-slate-500 font-sans text-center">
+                    Accepts <strong>.pdf</strong> only &bull; Single consolidated PDF dossier &bull; Auto-compressed before upload
+                  </span>
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept=".pdf,application/pdf"
                     disabled={uploadingDoc}
                     className="hidden"
                     onChange={handleUploadDocumentForParticipant}
@@ -2363,59 +3815,107 @@ export default function RegistrationDeskPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedParticipantForPass(null)}
-                  className="p-1 text-slate-400 hover:text-slate-700"
+                  className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* ID Badge Pass Card */}
-              <div className="bg-slate-900 text-white rounded-2xl p-6 border-4 border-[#FF5A16] shadow-xl text-center space-y-4">
-                <div className="space-y-1">
-                  <div className="font-rajdhani text-[10px] text-[#FF5A16] font-black uppercase tracking-widest">
+              {/* ID Badge Pass Card (CLEAN LIGHT THEME) */}
+              <div
+                id="accreditation-pass-card"
+                className="bg-white text-[#0B1528] rounded-2xl p-6 border-2 border-[#0B1528] shadow-lg text-center space-y-4 relative overflow-hidden"
+              >
+                {/* Official Accent Header Bar */}
+                <div className="border-b-2 border-[#FF5A16] pb-3 space-y-1">
+                  <div className="font-rajdhani text-xs text-[#FF5A16] font-black uppercase tracking-wider">
                     SOUTH ZONE WOMEN&apos;S BADMINTON CHAMPIONSHIP 2026
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    KLE Technological University, Hubballi
+                  <div className="text-[11px] text-slate-600 font-mono font-medium">
+                    KLE Technological University, Hubballi &bull; Karnataka
+                  </div>
+                  <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[#0B1528] font-rajdhani text-[10px] font-black uppercase tracking-widest mt-1">
+                    OFFICIAL ACCREDITATION PASS
                   </div>
                 </div>
 
                 {/* Photo */}
-                <div className="w-28 h-28 mx-auto rounded-xl overflow-hidden border-2 border-white shadow-md bg-slate-800">
+                <div className="w-28 h-28 mx-auto rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm bg-slate-100">
                   {selectedParticipantForPass.photoUrl ? (
-                    <img src={selectedParticipantForPass.photoUrl} alt="Athlete" className="w-full h-full object-cover" />
+                    <img
+                      src={selectedParticipantForPass.photoUrl}
+                      alt={selectedParticipantForPass.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <User className="w-12 h-12 text-slate-400 m-auto mt-8" />
                   )}
                 </div>
 
                 {/* Details */}
-                <div>
-                  <h3 className="font-rajdhani text-xl font-black uppercase tracking-wide text-white">
+                <div className="space-y-1">
+                  <h3 className="font-rajdhani text-2xl font-black uppercase tracking-tight text-[#0B1528]">
                     {selectedParticipantForPass.name}
                   </h3>
-                  <div className="font-mono text-xs text-[#FF5A16] font-bold">
-                    {selectedParticipantForPass.playerId}
+                  <div>
+                    <span className="font-mono text-xs text-[#FF5A16] font-bold px-3 py-1 bg-orange-50 border border-orange-200 rounded-full inline-block">
+                      {selectedParticipantForPass.playerId}
+                    </span>
                   </div>
-                  <div className="text-xs text-slate-300 font-bold mt-1">
+                  <div className="text-sm text-[#0B1528] font-bold uppercase mt-1">
                     {selectedParticipantForPass.institution}
                   </div>
-                  <div className="text-[11px] text-slate-400">
-                    {selectedParticipantForPass.role || "ATHLETE"} &bull; {selectedParticipantForPass.state}
+                  <div className="text-xs text-slate-600 font-rajdhani font-bold uppercase">
+                    {selectedParticipantForPass.state}
                   </div>
+
+                  {/* Role Badge */}
+                  <div className="pt-1">
+                    <span className={`inline-block px-3 py-0.5 rounded-full font-rajdhani text-xs font-black uppercase tracking-wider ${
+                      selectedParticipantForPass.role === "MANAGER"
+                        ? "bg-purple-100 text-purple-900 border border-purple-200"
+                        : selectedParticipantForPass.role === "CAPTAIN"
+                        ? "bg-orange-100 text-[#FF5A16] border border-orange-200"
+                        : "bg-blue-50 text-blue-900 border border-blue-200"
+                    }`}>
+                      {selectedParticipantForPass.role === "MANAGER"
+                        ? "ACCREDITED TEAM MANAGER"
+                        : selectedParticipantForPass.role === "CAPTAIN"
+                        ? "ACCREDITED ATHLETE (CAPTAIN)"
+                        : "ACCREDITED ATHLETE"}
+                    </span>
+                  </div>
+
+                  {/* Accommodation Info */}
+                  {selectedParticipantForPass.room && selectedParticipantForPass.room !== "—" && (
+                    <div className="text-[10px] font-mono text-slate-700 font-bold bg-slate-50 rounded-lg py-1 px-2 border border-slate-200 mt-1 inline-block">
+                      {selectedParticipantForPass.hostel} &bull; Room {selectedParticipantForPass.room} &bull; Bed {selectedParticipantForPass.bed}
+                    </div>
+                  )}
                 </div>
 
-                {/* Real Scannable QR */}
-                <div className="bg-white p-2.5 rounded-xl inline-block border border-slate-300 shadow-sm">
-                  <PortalQrCode
-                    value={selectedParticipantForPass.qrToken || `sz26_part_${selectedParticipantForPass.playerId}`}
-                    size={120}
-                    showActions={false}
-                  />
-                </div>
+                {/* Crisp Scannable Pass QR */}
+                <div className="pt-1 flex flex-col items-center justify-center">
+                  <div className="bg-white p-3 rounded-2xl border-2 border-slate-300 inline-block shadow-sm">
+                    <PassQrSvg
+                      value={selectedParticipantForPass.qrToken || selectedParticipantForPass.playerId}
+                      size={140}
+                    />
+                  </div>
 
-                <div className="text-[10px] font-mono text-emerald-400 font-bold tracking-wider uppercase">
-                  ACCREDITATION VERIFIED &bull; DESK 01
+                  <div className="text-[10px] font-mono font-bold tracking-wider uppercase mt-2">
+                    {selectedParticipantForPass.documentsStatus === "VERIFIED" ? (
+                      <span className="text-emerald-700 flex items-center gap-1 justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        ACCREDITATION VERIFIED &bull; DESK 01
+                      </span>
+                    ) : (
+                      <span className="text-amber-700 flex items-center gap-1 justify-center">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        PROVISIONAL REGISTRATION &bull; VERIFY AT DESK
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2441,40 +3941,154 @@ export default function RegistrationDeskPage() {
       </AnimatePresence>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* MODAL 3: VIEW QR MODAL */}
+      {/* TEAM DETAILS MODAL (DEDICATED ROSTER VIEW OPENED ON CLICK) */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
-        {selectedParticipantForQr && (
+        {selectedTeamDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-            <div className="bg-white border-2 border-slate-200 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="font-rajdhani text-xs font-bold text-slate-500 uppercase">OFFICIAL QR PASS</span>
-                <button type="button" onClick={() => setSelectedParticipantForQr(null)} className="p-1 text-slate-400 hover:text-slate-700">
-                  <X className="w-4 h-4" />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white border-2 border-slate-200 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-6 h-6 text-[#FF5A16]" />
+                    <h3 className="font-rajdhani text-2xl font-black text-slate-900 uppercase">
+                      {selectedTeamDetail.institution}
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="px-3 py-0.5 rounded-full bg-orange-100 border border-orange-200 text-[#FF5A16] font-rajdhani text-xs font-black uppercase">
+                      {selectedTeamDetail.state}
+                    </span>
+                    <span className="px-3 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-800 font-rajdhani text-xs font-black uppercase">
+                      {selectedTeamDetail.participants.length} Registered Members
+                    </span>
+                    <span className="px-3 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 font-rajdhani text-xs font-black uppercase">
+                      Total Paid: ₹{selectedTeamDetail.totalPaid.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeamName(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div>
-                <h4 className="font-rajdhani text-lg font-black uppercase text-slate-900">{selectedParticipantForQr.name}</h4>
-                <p className="font-mono text-xs text-[#FF5A16] font-bold">{selectedParticipantForQr.playerId}</p>
-                <p className="text-xs text-slate-500">{selectedParticipantForQr.institution}</p>
+              {/* Members Roster Table */}
+              <div className="overflow-y-auto flex-1 border border-slate-200 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-700 font-rajdhani font-black uppercase border-b border-slate-200 sticky top-0 z-10">
+                    <tr>
+                      <th className="p-3">PHOTO</th>
+                      <th className="p-3">NAME &amp; ID</th>
+                      <th className="p-3">ROLE</th>
+                      <th className="p-3">PHONE</th>
+                      <th className="p-3">ACCOMMODATION</th>
+                      <th className="p-3">1 PDF DOSSIER</th>
+                      <th className="p-3 text-right">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-sans">
+                    {selectedTeamDetail.participants.map((m) => (
+                      <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
+                            {m.photoUrl ? (
+                              <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-5 h-5 text-slate-400 m-auto mt-2.5" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900">{m.name}</div>
+                          <div className="font-mono text-[10px] text-[#FF5A16] font-bold">{m.playerId}</div>
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded font-rajdhani text-[10px] font-bold ${
+                            m.role === "MANAGER"
+                              ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
+                              : m.role === "CAPTAIN"
+                              ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
+                              : "bg-slate-100 text-slate-700"
+                          }`}>
+                            {m.role}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-600">{m.phone}</td>
+                        <td className="p-3 text-slate-700">
+                          {m.room !== "—" ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 font-rajdhani text-[10px] font-bold">
+                              {m.hostel} ({m.room})
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">None</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            onClick={() => triggerNativeFileUpload(m)}
+                            className={`px-2.5 py-1 rounded-lg font-rajdhani text-xs font-bold uppercase flex items-center gap-1 cursor-pointer border transition-colors ${
+                              m.documentsStatus === "VERIFIED"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-black"
+                                : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                            }`}
+                            title="Click to select 1 Combined PDF from your computer"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            {m.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF (SELECT)"}
+                          </button>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedParticipantForPass(m)}
+                            className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-xs font-black uppercase rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> VIEW PASS
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              <div className="bg-white p-3 rounded-2xl border-2 border-slate-300 inline-block shadow-sm">
-                <PortalQrCode
-                  value={selectedParticipantForQr.qrToken || `sz26_part_${selectedParticipantForQr.playerId}`}
-                  size={160}
-                  showActions={true}
-                />
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <span className="text-xs text-slate-500 font-mono">
+                  Showing {selectedTeamDetail.participants.length} registered contingent members
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTeamName(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-rajdhani text-xs font-bold uppercase rounded-xl cursor-pointer"
+                >
+                  CLOSE
+                </button>
               </div>
-
-              <p className="text-[11px] text-slate-400 font-sans">
-                Scan with phone camera or Document Scanner (/scanner) for instant resolution.
-              </p>
-            </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Hidden Native File Input for direct document uploads */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={handleNativeFileSelected}
+      />
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/* MODAL 4: FIND DETAILS SEARCH */}

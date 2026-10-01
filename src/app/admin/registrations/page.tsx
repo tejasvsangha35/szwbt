@@ -8,6 +8,7 @@ import { ROLE_MATRIX } from "@/data/dashboard";
 import { useAuth } from "@/lib/rbac/useAuth";
 import { CapturedDocument, generateCompiledPdf, downloadFile } from "@/lib/documentPdf";
 import { PortalQrCode } from "@/components/qr/PortalQrCode";
+import { compressUploadedFile } from "@/lib/fileCompressor";
 import {
   UserCheck,
   FileText,
@@ -47,16 +48,14 @@ import {
   ChevronLeft,
 } from "lucide-react";
 
-// South Zone States
+// South Zone States (Canonical Names)
 const SOUTH_ZONE_STATES = [
-  "Karnataka",
-  "Tamil Nadu",
-  "Kerala",
   "Andhra Pradesh",
-  "Telangana",
-  "Maharashtra",
-  "Goa",
+  "Karnataka",
+  "Kerala",
   "Puducherry",
+  "Tamil Nadu",
+  "Telangana",
 ];
 
 // Configured Universities / Institutions (database-backed, suggestions only)
@@ -394,8 +393,13 @@ export default function RegistrationAdminDashboard() {
 
   // Save Participant & Generate QR IMMEDIATELY (CRITICAL REQUIREMENT)
   const handleSaveParticipantAndGenerateQr = async () => {
-    if (!fullName.trim() || !mobile.trim() || !state.trim() || !institution.trim()) {
-      triggerToast("Full Name, Mobile Number, State, and Institution are required.", "error");
+    if (!fullName.trim() || !email.trim() || !mobile.trim() || !state.trim() || !institution.trim()) {
+      triggerToast("Full Name, Email Address, Mobile Number, State, and Institution are required.", "error");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      triggerToast("Please enter a valid Email Address.", "error");
       return;
     }
 
@@ -541,41 +545,63 @@ export default function RegistrationAdminDashboard() {
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    const rawWidth = video.videoWidth || 1280;
+    const rawHeight = video.videoHeight || 720;
+    const maxDim = 1200;
+    let targetWidth = rawWidth;
+    let targetHeight = rawHeight;
+    if (targetWidth > maxDim || targetHeight > maxDim) {
+      const ratio = Math.min(maxDim / targetWidth, maxDim / targetHeight);
+      targetWidth = Math.round(targetWidth * ratio);
+      targetHeight = Math.round(targetHeight * ratio);
+    }
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
 
     setCapturedPreview({ docId: activeCameraDocId, dataUrl });
     stopCameraStream();
   };
 
-  const handleNativeCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNativeCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeCameraDocId) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setCapturedPreview({ docId: activeCameraDocId, dataUrl });
-    };
-    reader.readAsDataURL(file);
+    try {
+      const res = await compressUploadedFile(file, "DOCUMENT");
+      setCapturedPreview({ docId: activeCameraDocId, dataUrl: res.dataUrl });
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setCapturedPreview({ docId: activeCameraDocId, dataUrl });
+      };
+      reader.readAsDataURL(file);
+    }
     e.target.value = "";
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !fileUploadTargetDocId) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      await uploadDocumentDirectly(fileUploadTargetDocId, dataUrl, file.name, file.type);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const res = await compressUploadedFile(file, "DOCUMENT");
+      await uploadDocumentDirectly(fileUploadTargetDocId, res.dataUrl, res.fileName, res.fileType);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        await uploadDocumentDirectly(fileUploadTargetDocId, dataUrl, file.name, file.type);
+      };
+      reader.readAsDataURL(file);
+    }
     e.target.value = "";
   };
 
@@ -1017,21 +1043,31 @@ export default function RegistrationAdminDashboard() {
                             >
                               [VIEW]
                             </button>
-                            <button
-                              onClick={() =>
-                                setViewingQrData({
-                                  title: "SOUTH ZONE WOMEN'S BADMINTON CHAMPIONSHIP 2026",
-                                  value: rec.qrToken || `sz26_part_${rec.id.replace(/-/g, "").slice(0, 16)}`,
-                                  participantName: rec.name,
-                                  institution: rec.institution,
-                                  referenceCode: rec.playerId,
-                                  type: "PARTICIPANT",
-                                })
-                              }
-                              className="px-2.5 py-1 bg-[#FF5A16] hover:bg-[#d94e16] text-white cursor-pointer shadow-[1px_1px_0px_#000]"
-                            >
-                              [OPEN QR]
-                            </button>
+                            {rec.qrToken && rec.status === "APPROVED" ? (
+                              <button
+                                onClick={() =>
+                                  setViewingQrData({
+                                    title: "SOUTH ZONE WOMEN'S BADMINTON CHAMPIONSHIP 2026",
+                                    value: rec.qrToken!,
+                                    participantName: rec.name,
+                                    institution: rec.institution,
+                                    referenceCode: rec.playerId,
+                                    type: "PARTICIPANT",
+                                  })
+                                }
+                                className="px-2.5 py-1 bg-[#FF5A16] hover:bg-[#d94e16] text-white cursor-pointer shadow-[1px_1px_0px_#000]"
+                              >
+                                [OPEN QR]
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="px-2.5 py-1 bg-[#050914] text-[#91A0AE]/50 border border-slate-700 cursor-not-allowed"
+                                title="QR Code locked: Pending document verification"
+                              >
+                                [LOCKED]
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1558,10 +1594,11 @@ export default function RegistrationAdminDashboard() {
                             {/* Email */}
                             <div>
                               <label className="block font-pixel text-[10px] text-[#18D8D0] uppercase tracking-wider mb-1">
-                                EMAIL ADDRESS
+                                EMAIL ADDRESS *
                               </label>
                               <input
                                 type="email"
+                                required
                                 value={email}
                                 onChange={(e) => {
                                   setEmail(e.target.value);

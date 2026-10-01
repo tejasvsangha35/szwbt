@@ -35,11 +35,11 @@ export const POST = withAuth(
       } = body;
 
       // 1. Mandatory Validations
-      if (!fullName || !mobile || !state || !institution) {
+      if (!fullName || !email || !mobile || !state || !institution) {
         return NextResponse.json(
           {
             success: false,
-            error: "Validation failed: Full Name, Mobile Number, State, and Institution are required.",
+            error: "Validation failed: Full Name, Email Address, Mobile Number, State, and Institution are required.",
           },
           { status: 400 }
         );

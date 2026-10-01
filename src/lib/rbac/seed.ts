@@ -116,18 +116,18 @@ export async function seedRbacData() {
     },
     {
       email: "team@szwbt2026.edu",
-      name: "Rajesh Kumar (BLR Manager)",
+      name: "Team Manager",
       badge: "UNIVERSITY DESK",
       targetUrl: "/team",
-      teamId: "team-blr-warriors",
+      teamId: "team-mgr-portal",
       roles: [ROLES.TEAM_MANAGER],
     },
     {
       email: "player@szwbt2026.edu",
-      name: "Ananya Sharma",
+      name: "Tournament Participant",
       badge: "PLAYER HUD",
       targetUrl: "/dashboard",
-      participantId: "p1-ananya-sharma",
+      participantId: "participant-athlete-portal",
       roles: [ROLES.PARTICIPANT],
     },
     {
@@ -160,17 +160,17 @@ export async function seedRbacData() {
     },
     {
       email: "scanner@szwbt2026.edu",
-      name: "Document Scanner Officer",
-      badge: "DOC SCANNER 01",
-      targetUrl: "/scanner",
-      roles: [ROLES.DOCUMENT_SCANNER, ROLES.REGISTRATION_STAFF],
+      name: "Document Officer",
+      badge: "DOC OFFICER 01",
+      targetUrl: "/register",
+      roles: [ROLES.REGISTRATION_STAFF],
     },
     {
       email: "documents@szwbt2026.edu",
       name: "Document Verification Lead",
       badge: "DOC VERIFICATION",
-      targetUrl: "/scanner",
-      roles: [ROLES.DOCUMENT_SCANNER, ROLES.REGISTRATION_STAFF],
+      targetUrl: "/register",
+      roles: [ROLES.REGISTRATION_STAFF],
     },
     // Multi-Role Demonstration (Supports Multiple Roles per User)
     {

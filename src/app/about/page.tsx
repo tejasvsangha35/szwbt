@@ -57,7 +57,7 @@ export default function AboutPage() {
       badge: "HOST EXCELLENCE",
       title: "WORLD-CLASS ARENA INFRASTRUCTURE",
       description:
-        "Hosted at the Dr. Prabhakar Kore Sports Complex at KLE Technological University, Hubballi. The facility features a high-ceiling championship hall equipped with 8 Yonex synthetic courts and tournament-grade illumination.",
+        "Hosted at the Dr. Prabhakar Kore Sports Complex at KLE Technological University, Hubballi. The facility features a high-ceiling championship hall equipped with 4 Yonex synthetic courts and tournament-grade illumination.",
       points: [
         "4 tournament-standard badminton courts with professional shock-absorption mats",
         "500+ spectator tiered seating capacity and VIP media commentary box",

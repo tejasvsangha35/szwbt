@@ -152,13 +152,15 @@ async function runTests() {
   );
 
   // -------------------------------------------------------------
-  // TEST 6: Accommodation staff → can allocate bed
+  // TEST 6: Accommodation staff → restricted from initial bed allocation, can check in/out & edit
   // -------------------------------------------------------------
   const canAccomAllocate = hasPermission(accomContext, PERMISSIONS.ACCOMMODATION_ALLOCATE);
-  const accomGuard = authorizePermissions(accomContext, [PERMISSIONS.ACCOMMODATION_ALLOCATE]);
+  const canAccomCheckin = hasPermission(accomContext, PERMISSIONS.ACCOMMODATION_CHECKIN);
+  const canAccomVacate = hasPermission(accomContext, PERMISSIONS.ACCOMMODATION_VACATE);
+  const accomGuard = authorizePermissions(accomContext, [PERMISSIONS.ACCOMMODATION_CHECKIN, PERMISSIONS.ACCOMMODATION_VACATE]);
   assert(
-    canAccomAllocate && accomGuard === null,
-    "06: Accommodation staff is authorized to allocate 5-bed hostel beds"
+    !canAccomAllocate && canAccomCheckin && canAccomVacate && accomGuard === null,
+    "06: Accommodation staff restricted from initial bed selection; authorized for check-in/out and edit"
   );
 
   // -------------------------------------------------------------
@@ -222,8 +224,10 @@ async function runTests() {
   // -------------------------------------------------------------
   // TEST 12: Team manager → can access own team
   // -------------------------------------------------------------
-  const ownTeamId = managerContext.user.teamId || "team-blr-warriors";
-  const ownTeamScope = await checkResourceScope(managerContext, "team", ownTeamId, "read");
+  const ownTeamId = managerContext.user.teamId || "team-mgr-portal";
+  const ownTeamScope = await checkResourceScope(managerContext, "team", ownTeamId, "read", {
+    teamId: ownTeamId,
+  });
   assert(
     hasPermission(managerContext, PERMISSIONS.TEAM_READ) && ownTeamScope.allowed,
     "12: Team manager is authorized to access resources of their own team"
@@ -241,13 +245,18 @@ async function runTests() {
   // -------------------------------------------------------------
   // TEST 14: Participant → cannot access another participant
   // -------------------------------------------------------------
-  const ownParticipantId = participantContext.user.participantId || "p1-ananya-sharma";
-  const ownPartScope = await checkResourceScope(participantContext, "participant", ownParticipantId, "read");
+  const ownParticipantId = participantContext.user.participantId || "participant-athlete-portal";
+  const ownPartScope = await checkResourceScope(participantContext, "participant", ownParticipantId, "read", {
+    participantId: ownParticipantId,
+  });
   const otherPartScope = await checkResourceScope(
     participantContext,
     "participant",
     "p2-foreign-athlete-99",
-    "read"
+    "read",
+    {
+      participantId: ownParticipantId,
+    }
   );
   assert(
     ownPartScope.allowed && !otherPartScope.allowed,

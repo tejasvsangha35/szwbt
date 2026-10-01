@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
         metrics: { totalCourts: courts.length, readyCourts },
         actionUrl: "/admin/tournament/courts",
         checklist: [
-          { label: "8-Court Arena Registered", ok: courts.length >= 8, detail: `${courts.length} courts` },
+          { label: "4-Court Arena Registered", ok: courts.length >= 4, detail: `${courts.length} courts` },
           { label: "Operational State", ok: readyCourts >= 4, detail: `${readyCourts} ready/live` },
         ],
       },

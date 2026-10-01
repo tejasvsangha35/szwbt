@@ -1,21 +1,102 @@
 institution_code,university_name,state,city,district,status
-KAR001,KLE Technological University,Karnataka,Hubballi,Dharwad,ACTIVE
-KAR002,Visvesvaraya Technological University,Karnataka,Belagavi,Belagavi,ACTIVE
-KAR003,Bangalore University,Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
-KAR004,University of Mysore,Karnataka,Mysuru,Mysuru,ACTIVE
-KAR005,Mangalore University,Karnataka,Mangaluru,Dakshina Kannada,ACTIVE
-TAM001,Anna University,Tamil Nadu,Chennai,Chennai,ACTIVE
-TAM002,University of Madras,Tamil Nadu,Chennai,Chennai,ACTIVE
-TAM003,Bharathiar University,Tamil Nadu,Coimbatore,Coimbatore,ACTIVE
-TAM004,Madurai Kamaraj University,Tamil Nadu,Madurai,Madurai,ACTIVE
-KER001,University of Kerala,Kerala,Thiruvananthapuram,Thiruvananthapuram,ACTIVE
-KER002,Mahatma Gandhi University,Kerala,Kottayam,Kottayam,ACTIVE
-KER003,University of Calicut,Kerala,Malappuram,Malappuram,ACTIVE
-KER004,Cochin University of Science and Technology,Kerala,Kochi,Ernakulam,ACTIVE
-AND001,Andhra University,Andhra Pradesh,Visakhapatnam,Visakhapatnam,ACTIVE
-AND002,Sri Venkateswara University,Andhra Pradesh,Tirupati,Tirupati,ACTIVE
-AND003,Acharya Nagarjuna University,Andhra Pradesh,Guntur,Guntur,ACTIVE
-TEL001,Osmania University,Telangana,Hyderabad,Hyderabad,ACTIVE
-TEL002,Kakatiya University,Telangana,Warangal,Hanamkonda,ACTIVE
-TEL003,Jawaharlal Nehru Technological University Hyderabad,Telangana,Hyderabad,Hyderabad,ACTIVE
-PON001,Pondicherry University,Puducherry,Puducherry,Puducherry,ACTIVE
+AND001,"Acharya Nagarjuna University, Guntur",Andhra Pradesh,Guntur,Guntur,ACTIVE
+AND002,"Adikavi Nannaya University, Rajamahendravaram",Andhra Pradesh,Rajamahendravaram,East Godavari,ACTIVE
+AND003,"Apollo University, Chitturu",Andhra Pradesh,Chitturu,Chittoor,ACTIVE
+AND004,"Dr. NTR university of Health Sciences, Vijayawada",Andhra Pradesh,Vijayawada,NTR,ACTIVE
+AND005,"GITAM Deemed to be University, Visakhapatnam",Andhra Pradesh,Visakhapatnam,Visakhapatnam,ACTIVE
+AND006,"Jawaharlal Nehru Technological University, Ananthpura",Andhra Pradesh,Ananthpura,Anantapur,ACTIVE
+AND007,"Jawaharlal Nehru Technological University, Gurujada Vizianagaram",Andhra Pradesh,Vizianagaram,Vizianagaram,ACTIVE
+AND008,"Jawaharlal Nehru Technological University, Kakinada",Andhra Pradesh,Kakinada,Kakinada,ACTIVE
+AND009,"KLEF Deemed to be University, Vaddeshwaram",Andhra Pradesh,Vaddeshwaram,Guntur,ACTIVE
+AND010,"Krishna University, Machalipattanam",Andhra Pradesh,Machalipattanam,Krishna,ACTIVE
+AND011,"Mohan Babu University, Tirupati",Andhra Pradesh,Tirupati,Tirupati,ACTIVE
+AND012,"Rayalaseema University, Karnool",Andhra Pradesh,Karnool,Kurnool,ACTIVE
+AND013,"Siddharth Academy of Higher Education,Deemed to be University, Vijayawada",Andhra Pradesh,Vijayawada,NTR,ACTIVE
+AND014,"Sri Krishnadevaraya University, Anantapura",Andhra Pradesh,Anantapura,Anantapur,ACTIVE
+AND015,"Sri Venkateshwar University, Tirupati",Andhra Pradesh,Tirupati,Tirupati,ACTIVE
+AND016,Vighnan's foundation of Science,Andhra Pradesh,Guntur,Guntur,ACTIVE
+AND017,"Vikram Simhapuri University, Nellore",Andhra Pradesh,Nellore,SPSR Nellore,ACTIVE
+AND018,"VIT- AP University, Vijayawada",Andhra Pradesh,Vijayawada,Amaravati,ACTIVE
+AND019,"Yogi Vemana University, Kadapa",Andhra Pradesh,Kadapa,YSR Kadapa,ACTIVE
+AND020,Andhra University,Andhra Pradesh,Visakhapatnam,Visakhapatnam,ACTIVE
+KAR001,"Adikavi Shri Maharshi Valmiki University, Raichur",Karnataka,Raichur,Raichur,ACTIVE
+KAR002,"Bagalkot University, Jamakhandi",Karnataka,Jamakhandi,Bagalkot,ACTIVE
+KAR003,"Bangalore University, Bangaluru",Karnataka,Bangaluru,Bengaluru Urban,ACTIVE
+KAR004,"Bengaluru North University, Kolar",Karnataka,Kolar,Kolar,ACTIVE
+KAR005,"Central University of Karnataka, Gulbarga",Karnataka,Gulbarga,Kalaburagi,ACTIVE
+KAR006,"Chamarajnagara University, Chamarajnagara",Karnataka,Chamarajnagara,Chamarajanagar,ACTIVE
+KAR007,"Chanakya University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR008,"Christ University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR009,"Davangere University, Davangere",Karnataka,Davangere,Davanagere,ACTIVE
+KAR010,"Dr. Manmohan Singh Bengaluru City University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR011,"Gulbarga University, Gulbarga",Karnataka,Gulbarga,Kalaburagi,ACTIVE
+KAR012,"Hassan University, Hassan",Karnataka,Hassan,Hassan,ACTIVE
+KAR013,"Haveri University, Haveri",Karnataka,Haveri,Haveri,ACTIVE
+KAR014,"Jain Deemed to be University, Bangaluru",Karnataka,Bangaluru,Bengaluru Urban,ACTIVE
+KAR015,"JSS Academy of Higher Education & Research, Mysuru",Karnataka,Mysuru,Mysuru,ACTIVE
+KAR016,"Karnatak University, Dharwad",Karnataka,Dharwad,Dharwad,ACTIVE
+KAR017,"Karnataka Sate Law University, Hubballi",Karnataka,Hubballi,Dharwad,ACTIVE
+KAR018,"Karnataka State Akkamahadevi University, Vijayapura",Karnataka,Vijayapura,Vijayapura,ACTIVE
+KAR019,"Kitturu Rani Channamma University, Belagavi",Karnataka,Belagavi,Belagavi,ACTIVE
+KAR020,KLE Academy of Higher Education & Research (Deemed to be University),Karnataka,Belagavi,Belagavi,ACTIVE
+KAR021,"KLE Technological University, Hubballi",Karnataka,Hubballi,Dharwad,ACTIVE
+KAR022,"Kristu Jayanti Deemed to be University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR023,"Kuvempu University, Shivamogga",Karnataka,Shivamogga,Shivamogga,ACTIVE
+KAR024,"Maharani Cluster University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR025,"Mangalore University, Mangaluru",Karnataka,Mangaluru,Dakshina Kannada,ACTIVE
+KAR026,"Manipal Academy of Higher Education, Manipal",Karnataka,Manipal,Udupi,ACTIVE
+KAR027,"Nitte Deemed to be University, Mangaluru",Karnataka,Mangaluru,Dakshina Kannada,ACTIVE
+KAR028,"PES University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR029,"Presidency University, Bangaluru",Karnataka,Bangaluru,Bengaluru Urban,ACTIVE
+KAR030,"Rajiv Gandhi University of Health Sciences, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR031,"Reva University, Bangaluru",Karnataka,Bangaluru,Bengaluru Urban,ACTIVE
+KAR032,"RV University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR033,"Shri Dharmasthala Manjunatheshwara University, Dharwad",Karnataka,Dharwad,Dharwad,ACTIVE
+KAR034,"St. Joseph University, Bengaluru",Karnataka,Bengaluru,Bengaluru Urban,ACTIVE
+KAR035,"Tumkur University, Tumkur",Karnataka,Tumkur,Tumakuru,ACTIVE
+KAR036,"University of Agricultural Sciences, Bangaluru",Karnataka,Bangaluru,Bengaluru Urban,ACTIVE
+KAR037,"University of Agricultural Sciences, Dharwad",Karnataka,Dharwad,Dharwad,ACTIVE
+KAR038,"University of Mysore, Mysuru",Karnataka,Mysuru,Mysuru,ACTIVE
+KAR039,"Vijayanagara Sri Krishnadevaraya University, Ballari",Karnataka,Ballari,Ballari,ACTIVE
+KAR040,"Vishweshwarayya Technological University, Belagavi",Karnataka,Belagavi,Belagavi,ACTIVE
+KER001,"APJ Abdul Kalam University, Tiruvananthpuram",Kerala,Tiruvananthpuram,Thiruvananthapuram,ACTIVE
+KER002,Chinmay Vishwavidyapeetham,Kerala,Ernakulam,Ernakulam,ACTIVE
+KER003,"Coachin University of Science & Technology, Coachin",Kerala,Coachin,Ernakulam,ACTIVE
+KER004,"Kannur University, Kannur",Kerala,Kannur,Kannur,ACTIVE
+KER005,Kerala Agricultural University,Kerala,Thrissur,Thrissur,ACTIVE
+KER006,"Kerala University of Health Sciences, Thrissur",Kerala,Thrissur,Thrissur,ACTIVE
+KER007,"Sree Sankaracharya University of Sanskrit, Kalady",Kerala,Kalady,Ernakulam,ACTIVE
+KER008,"University of Calicut, Calicut",Kerala,Calicut,Malappuram,ACTIVE
+KER009,University of Kerala,Kerala,Thiruvananthapuram,Thiruvananthapuram,ACTIVE
+TAM001,"Alagappa University, Karaikudi",Tamil Nadu,Karaikudi,Sivaganga,ACTIVE
+TAM002,"Amrita Vishwavidyapeetham, Coimbatore",Tamil Nadu,Coimbatore,Coimbatore,ACTIVE
+TAM003,"Anna University, Chennai",Tamil Nadu,Chennai,Chennai,ACTIVE
+TAM004,"Annamalai University, Chidambaram",Tamil Nadu,Chidambaram,Cuddalore,ACTIVE
+TAM005,B S Abdur Rehman Cresent Institute of Science & Technology,Tamil Nadu,Chennai,Chengalpattu,ACTIVE
+TAM006,"Bharathiar University, Coimbatore",Tamil Nadu,Coimbatore,Coimbatore,ACTIVE
+TAM007,"Bharathidasan University, Tiruchirapalli",Tamil Nadu,Tiruchirapalli,Tiruchirappalli,ACTIVE
+TAM008,Central University of Tamilnadu,Tamil Nadu,Thiruvarur,Thiruvarur,ACTIVE
+TAM009,Dr. MGR Educational & Research institute,Tamil Nadu,Chennai,Chennai,ACTIVE
+TAM010,"Hindustan Institute of Technology & Science, Chennai",Tamil Nadu,Chennai,Chengalpattu,ACTIVE
+TAM011,"Indian Institute of Technology, Madras, Chennai",Tamil Nadu,Chennai,Chennai,ACTIVE
+TAM012,"Madurai Kamaraj University, Madurai",Tamil Nadu,Madurai,Madurai,ACTIVE
+TAM013,"Manonmaniam Sundaranar University, Tirunalveli",Tamil Nadu,Tirunalveli,Tirunelveli,ACTIVE
+TAM014,"Mother Teresa Women’s University, Kodaikanal",Tamil Nadu,Kodaikanal,Dindigul,ACTIVE
+TAM015,"Periyar University, Salem",Tamil Nadu,Salem,Salem,ACTIVE
+TAM016,"Saveetha Institute of Medical & technical Sciences, Chennai",Tamil Nadu,Chennai,Poonamallee,ACTIVE
+TAM017,"SRM University, Kottankulathur",Tamil Nadu,Kottankulathur,Chengalpattu,ACTIVE
+TAM018,"Tamilnadu Physical Education & Sports University, Chennai",Tamil Nadu,Chennai,Chennai,ACTIVE
+TAM019,"The Tamilnadu Dr. Ambedkar Law University, Chennai",Tamil Nadu,Chennai,Chennai,ACTIVE
+TAM020,"Thiruvalluvar University, Vellore",Tamil Nadu,Vellore,Vellore,ACTIVE
+TAM021,"University of Madras, Chennai",Tamil Nadu,Chennai,Chennai,ACTIVE
+TAM022,"Vellore Institute of Technology, Vellore",Tamil Nadu,Vellore,Vellore,ACTIVE
+TAM023,Vinayak Mission Research Foundation,Tamil Nadu,Salem,Salem,ACTIVE
+TEL001,"Jawaharlal Nehru Technological University, Hyderbad",Telangana,Hyderbad,Hyderabad,ACTIVE
+TEL002,"Kakatiya University, Warangal",Telangana,Warangal,Hanamkonda,ACTIVE
+TEL003,"Malla Reddy Vishwavidyapeeth Deemed to be University, Hyderabad",Telangana,Hyderabad,Medchal-Malkajgiri,ACTIVE
+TEL004,"Osmania University, Hyderabad",Telangana,Hyderabad,Hyderabad,ACTIVE
+TEL005,"University of Hyderabad, Hyderabad",Telangana,Hyderabad,Hyderabad,ACTIVE
+TEL006,"Veeranari Chakali Ilamma University, Hyderabad",Telangana,Hyderabad,Hyderabad,ACTIVE
+TEL007,"Woxen University, Hydrabad",Telangana,Hydrabad,Sangareddy,ACTIVE
+PON001,"Pondicherry University, Puducherry",Puducherry,Puducherry,Puducherry,ACTIVE
+UNR001,Mahatma Gandhi University,State not specified,,,PENDING_ASSIGNMENT

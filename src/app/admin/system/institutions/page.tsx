@@ -41,7 +41,7 @@ export default function InstitutionManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // CSV Upload State
@@ -54,7 +54,14 @@ export default function InstitutionManagementPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const SOUTH_ZONE_STATES = [
-    "ALL", "Andhra Pradesh", "Goa", "Karnataka", "Kerala", "Maharashtra", "Puducherry", "Tamil Nadu", "Telangana",
+    "ALL",
+    "Andhra Pradesh",
+    "Karnataka",
+    "Kerala",
+    "Puducherry",
+    "Tamil Nadu",
+    "Telangana",
+    "State not specified",
   ];
 
   const triggerToast = (message: string, type: "success" | "error" | "info" = "info") => {
@@ -261,6 +268,7 @@ export default function InstitutionManagementPage() {
           >
             <option value="ALL">All Status</option>
             <option value="ACTIVE">Active</option>
+            <option value="PENDING_ASSIGNMENT">Pending Assignment</option>
             <option value="INACTIVE">Inactive</option>
           </select>
         </div>
@@ -324,7 +332,9 @@ export default function InstitutionManagementPage() {
                       <span className={`inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
                         inst.status === "ACTIVE"
                           ? "text-emerald-400 bg-emerald-900/30 border-emerald-500/30"
-                          : "text-gray-500 bg-gray-800/30 border-gray-600/30"
+                          : inst.status === "PENDING_ASSIGNMENT"
+                            ? "text-amber-400 bg-amber-900/30 border-amber-500/30"
+                            : "text-gray-500 bg-gray-800/30 border-gray-600/30"
                       }`}>
                         {inst.status}
                       </span>

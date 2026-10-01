@@ -257,7 +257,7 @@ export async function checkResourceScope(
 
     // Participant can ONLY access their own record
     if (context.roles.includes(ROLES.PARTICIPANT)) {
-      const ownParticipantId = context.user.participantId;
+      const ownParticipantId = context.user.participantId || options?.participantId;
       if (
         !ownParticipantId ||
         (resourceId && resourceId !== ownParticipantId && resourceId !== context.user.id)
@@ -354,6 +354,11 @@ export async function checkResourceScope(
 
   // 7. ACCOMMODATION RESOURCE SCOPE
   if (resourceType === "accommodation") {
+    if (action === "allocate") {
+      if (context.roles.includes(ROLES.ACCOMMODATION_STAFF) && !context.roles.includes(ROLES.SUPER_ADMIN) && !context.roles.includes(ROLES.REGISTRATION_STAFF)) {
+        return { allowed: false, reason: "Hostel staff cannot allocate beds from scratch. Bed allocation is managed at the Central Registration Desk." };
+      }
+    }
     if (context.roles.includes(ROLES.ACCOMMODATION_STAFF)) {
       return { allowed: true };
     }

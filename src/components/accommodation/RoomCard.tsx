@@ -2,6 +2,7 @@
 
 import React from "react";
 import { BedCard, BedData } from "./BedCard";
+import { UserCheck } from "lucide-react";
 
 export interface RoomData {
   id: string;
@@ -21,7 +22,11 @@ export interface RoomData {
 interface RoomCardProps {
   room: RoomData;
   hostelName: string;
+  canAllocate?: boolean;
   onAllocateBed?: (bed: BedData, room: RoomData) => void;
+  onCheckInBed?: (bed: BedData, room: RoomData, newStatus: boolean) => void;
+  onCheckInWholeRoom?: (room: RoomData) => void;
+  onEditBed?: (bed: BedData, room: RoomData) => void;
   onMoveBed?: (bed: BedData, room: RoomData) => void;
   onVacateBed?: (bed: BedData, room: RoomData) => void;
 }
@@ -29,7 +34,11 @@ interface RoomCardProps {
 export const RoomCard: React.FC<RoomCardProps> = ({
   room,
   hostelName,
+  canAllocate = false,
   onAllocateBed,
+  onCheckInBed,
+  onCheckInWholeRoom,
+  onEditBed,
   onMoveBed,
   onVacateBed,
 }) => {
@@ -37,6 +46,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   const occupiedCount = room.beds.filter((b) => b.status === "OCCUPIED").length;
   const availableCount = room.beds.filter((b) => b.status === "AVAILABLE").length;
   const isFull = occupiedCount >= totalBeds;
+
+  const pendingOccupants = room.beds.filter(
+    (b) => b.status === "OCCUPIED" && b.occupant && !b.occupant.isCheckedIn
+  );
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between gap-4 transition-all hover:border-orange-300 hover:shadow-sm">
@@ -56,18 +69,33 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           </span>
         </div>
 
-        {/* Occupancy Badge */}
-        <span
-          className={`font-pixel text-xs px-3 py-1 font-bold rounded-lg border shadow-2xs ${
-            isFull
-              ? "bg-rose-50 text-rose-700 border-rose-200"
-              : occupiedCount > 0
-              ? "bg-amber-50 text-amber-800 border-amber-200"
-              : "bg-emerald-50 text-emerald-800 border-emerald-200"
-          }`}
-        >
-          {occupiedCount} / {totalBeds} OCCUPIED ({availableCount} AVAILABLE)
-        </span>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Check in whole room button */}
+          {pendingOccupants.length > 0 && onCheckInWholeRoom && (
+            <button
+              type="button"
+              onClick={() => onCheckInWholeRoom(room)}
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-pixel text-[9px] font-bold tracking-wider rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
+              title={`Check in all ${pendingOccupants.length} pending occupants in ${room.roomNumber} at once`}
+            >
+              <UserCheck className="w-3 h-3" />
+              <span>CHECK IN ROOM ({pendingOccupants.length})</span>
+            </button>
+          )}
+
+          {/* Occupancy Badge */}
+          <span
+            className={`font-pixel text-xs px-3 py-1 font-bold rounded-lg border shadow-2xs ${
+              isFull
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : occupiedCount > 0
+                ? "bg-amber-50 text-amber-800 border-amber-200"
+                : "bg-emerald-50 text-emerald-800 border-emerald-200"
+            }`}
+          >
+            {occupiedCount} / {totalBeds} OCCUPIED ({availableCount} AVAILABLE)
+          </span>
+        </div>
       </div>
 
       {/* Dynamic Bed Grid */}
@@ -81,7 +109,10 @@ export const RoomCard: React.FC<RoomCardProps> = ({
                 bed={bed}
                 roomNumber={room.roomNumber}
                 hostelName={hostelName}
+                canAllocate={canAllocate}
                 onAllocate={(b) => onAllocateBed && onAllocateBed(b, room)}
+                onCheckIn={(b, newStatus) => onCheckInBed && onCheckInBed(b, room, newStatus)}
+                onEditBed={(b) => (onEditBed ? onEditBed(b, room) : onMoveBed && onMoveBed(b, room))}
                 onMove={(b) => onMoveBed && onMoveBed(b, room)}
                 onVacate={(b) => onVacateBed && onVacateBed(b, room)}
               />

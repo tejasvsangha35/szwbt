@@ -66,16 +66,18 @@ export const GET = withAuth(
       // Classify into Current, Upcoming, Completed
       const currentMatch =
         enrichedMatches.find((m) => m.status === "LIVE" || m.status === "PAUSED") ||
-        enrichedMatches.find((m) => m.status === "UPCOMING" || m.status === "READY") ||
+        enrichedMatches.find((m) => m.status === "READY_TO_START" || m.status === "READY" || m.status === "UPCOMING" || m.status === "COURT_ASSIGNED") ||
         null;
 
       const upcomingMatches = enrichedMatches.filter(
         (m) =>
-          (m.status === "UPCOMING" || m.status === "READY") &&
+          (m.status === "UPCOMING" || m.status === "READY" || m.status === "READY_TO_START" || m.status === "COURT_ASSIGNED") &&
           (!currentMatch || m.id !== currentMatch.id)
       );
 
-      const completedMatches = enrichedMatches.filter((m) => m.status === "COMPLETED");
+      const completedMatches = enrichedMatches.filter(
+        (m) => m.status === "COMPLETED" || m.status === "RESULT_CONFIRMED" || m.status === "RESULT_SUBMITTED" || m.status === "WALKOVER"
+      );
 
       return NextResponse.json({
         success: true,

@@ -15,14 +15,15 @@ export interface OperationsAuthResult {
 export function verifyOperationsClearance(context: UserContext): OperationsAuthResult {
   const isOperationsStaff = context.roles.includes(ROLES.OPERATIONS_STAFF);
   const isSuperAdmin = context.roles.includes(ROLES.SUPER_ADMIN);
+  const isTournamentAdmin = context.roles.includes(ROLES.TOURNAMENT_ADMIN);
 
-  if (!isOperationsStaff && !isSuperAdmin) {
+  if (!isOperationsStaff && !isSuperAdmin && !isTournamentAdmin) {
     return {
       isAuthorized: false,
       errorResponse: NextResponse.json(
         {
           success: false,
-          error: "403 Forbidden: Only authorized On-Ground Operations Staff or Super Administrators can access the operations command center.",
+          error: "403 Forbidden: Only authorized On-Ground Operations Staff, Tournament Administrators, or Super Administrators can access the operations command center.",
         },
         { status: 403 }
       ),

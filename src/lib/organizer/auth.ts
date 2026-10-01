@@ -15,14 +15,16 @@ export interface OrganizerAuthResult {
 export function verifyOrganizerClearance(context: UserContext): OrganizerAuthResult {
   const isOrganizer = context.roles.includes(ROLES.ORGANIZER);
   const isSuperAdmin = context.roles.includes(ROLES.SUPER_ADMIN);
+  const isTournamentAdmin = context.roles.includes(ROLES.TOURNAMENT_ADMIN);
+  const isOperationsStaff = context.roles.includes(ROLES.OPERATIONS_STAFF);
 
-  if (!isOrganizer && !isSuperAdmin) {
+  if (!isOrganizer && !isSuperAdmin && !isTournamentAdmin && !isOperationsStaff) {
     return {
       isAuthorized: false,
       errorResponse: NextResponse.json(
         {
           success: false,
-          error: "403 Forbidden: Only authorized Tournament Organizers or Super Administrators can access the operations command center.",
+          error: "403 Forbidden: Only authorized Tournament Organizers, Operations Staff, Tournament Admins, or Super Administrators can access the operations command center.",
         },
         { status: 403 }
       ),

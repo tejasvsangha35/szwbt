@@ -556,7 +556,7 @@ export default function LiveOperationsDashboard() {
         <div className="border-b-2 border-[#16273D] flex items-center gap-1 overflow-x-auto pb-0">
           {(
             [
-              { id: "COURTS", label: "8-COURT MATRIX", count: courts.length },
+              { id: "COURTS", label: "4-COURT MATRIX", count: courts.length },
               { id: "LIVE", label: "LIVE MATCHES", count: liveMatches.length },
               { id: "QUEUE", label: "MATCH QUEUE", count: queueMatches.length },
               { id: "COMPLETED", label: "COMPLETED RESULTS", count: kpis?.completed || 0 },
@@ -590,7 +590,7 @@ export default function LiveOperationsDashboard() {
           })}
         </div>
 
-        {/* ═══ TAB 1: 8-COURT MISSION CONTROL MATRIX ═══ */}
+        {/* ═══ TAB 1: 4-COURT MISSION CONTROL MATRIX ═══ */}
         {activeTab === "COURTS" && (
           <div className="space-y-6">
             {courts.length === 0 ? (

@@ -53,7 +53,6 @@ export const PROTECTED_ROUTES = [
   "/team",
   "/dashboard",
   "/profile",
-  "/scanner",
 ] as const;
 
 // Canonical Route Constants & Helpers
@@ -113,7 +112,6 @@ export const ROUTES = {
   official: () => "/official",
   team: (teamId?: string) => (teamId ? `/team?teamId=${encodeURIComponent(teamId)}` : "/team"),
   dashboard: (participantId?: string) => (participantId ? `/dashboard?id=${encodeURIComponent(participantId)}` : "/dashboard"),
-  scanner: () => "/scanner",
 } as const;
 
 // Lowercase alias matching prompt format
@@ -141,23 +139,8 @@ export const ROUTE_PERMISSIONS: Record<string, RouteSecurityRequirement> = {
   "/admin/registrations": {
     path: "/admin/registrations",
     requiredPermission: PERMISSIONS.REGISTRATION_READ,
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.REGISTRATION_STAFF, ROLES.DOCUMENT_SCANNER, ROLES.TOURNAMENT_ADMIN],
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.REGISTRATION_STAFF, ROLES.TOURNAMENT_ADMIN],
     name: "Registration Desk Operations",
-  },
-  "/scanner": {
-    path: "/scanner",
-    requiredPermission: "",
-    allowedRoles: [
-      ROLES.SUPER_ADMIN,
-      ROLES.DOCUMENT_SCANNER,
-      ROLES.REGISTRATION_STAFF,
-      ROLES.TOURNAMENT_ADMIN,
-      ROLES.OPERATIONS_STAFF,
-      ROLES.VOLUNTEER,
-      ROLES.ORGANIZER,
-      ROLES.SUPPORT_STAFF,
-    ],
-    name: "Document Scanner Mobile Interface",
   },
   "/admin/accommodation": {
     path: "/admin/accommodation",
@@ -264,7 +247,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteSecurityRequirement> = {
   "/organizer": {
     path: "/organizer",
     requiredPermission: PERMISSIONS.ANNOUNCEMENT_READ,
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ORGANIZER],
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ORGANIZER, ROLES.TOURNAMENT_ADMIN, ROLES.OPERATIONS_STAFF],
     name: "Tournament Organizer Executive HUD",
   },
   "/operations": {
@@ -275,8 +258,8 @@ export const ROUTE_PERMISSIONS: Record<string, RouteSecurityRequirement> = {
   },
   "/volunteer": {
     path: "/volunteer",
-    requiredPermission: PERMISSIONS.TRANSPORT_READ,
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.VOLUNTEER],
+    requiredPermission: "",
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.VOLUNTEER, ROLES.OPERATIONS_STAFF, ROLES.TOURNAMENT_ADMIN],
     name: "Volunteer Mobile Field Desk",
   },
   "/support": {

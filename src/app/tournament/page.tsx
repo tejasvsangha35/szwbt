@@ -74,8 +74,8 @@ export default function TournamentPage() {
       pixel: "/arena-facade-pixel.jpg",
       real: "/arena-facade.webp",
       title: "INDOOR BADMINTON ARENA FACADE",
-      desc: "Architectural pleated black metal panel facade with angular cantilevered red entrance soffit and BVB / KLE Tech emblem, housing 8 BWF-standard courts.",
-      meta: "8 REGULATION WOODEN COURTS",
+      desc: "Architectural pleated black metal panel facade with angular cantilevered red entrance soffit and BVB / KLE Tech emblem, housing 4 BWF-standard courts.",
+      meta: "4 REGULATION WOODEN COURTS",
     },
     campus: {
       pixel: "/college-campus-pixel.jpg",

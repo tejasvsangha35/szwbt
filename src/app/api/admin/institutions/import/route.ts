@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
 import { logAuditEvent } from "@/lib/rbac/audit";
+import { normalizeStateName } from "@/data/institutions";
 
 /**
  * POST /api/admin/institutions/import
@@ -32,10 +33,34 @@ export const POST = withAuth(
         );
       }
 
-      const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase().replace(/"/g, ""));
+      function parseCsvLine(line: string): string[] {
+        const result: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === "," && !inQuotes) {
+            result.push(current.trim().replace(/^"|"$/g, ""));
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim().replace(/^"|"$/g, ""));
+        return result;
+      }
+
+      const headers = parseCsvLine(lines[0]).map((h: string) => h.trim().toLowerCase().replace(/"/g, ""));
       const rows: Record<string, string>[] = [];
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map((v: string) => v.trim().replace(/^"|"$/g, ""));
+        const values = parseCsvLine(lines[i]);
         if (values.every((v: string) => !v)) continue;
         const row: Record<string, string> = {};
         headers.forEach((h: string, idx: number) => { row[h] = values[idx] || ""; });
@@ -52,7 +77,7 @@ export const POST = withAuth(
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           const universityName = (row.university_name || "").trim();
-          const state = (row.state || "").trim();
+          const state = normalizeStateName(row.state);
           const code = (row.institution_code || "").trim() || `AUTO_${state.substring(0, 3).toUpperCase()}${String(i + 1).padStart(3, "0")}`;
           const city = (row.city || "").trim() || null;
           const district = (row.district || "").trim() || null;

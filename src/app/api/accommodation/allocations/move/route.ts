@@ -15,29 +15,47 @@ export const POST = withAuth(
   async (req: NextRequest, context: UserContext) => {
     try {
       const body = await req.json();
-      const { allocationId, targetBedId } = body;
+      const targetBedId = body.targetBedId || body.newBedId;
+      let allocationId = body.allocationId;
 
-      if (!allocationId || !targetBedId) {
+      if (!targetBedId) {
         return NextResponse.json(
-          { success: false, error: "allocationId and targetBedId are required." },
+          { success: false, error: "targetBedId (or newBedId) is required." },
           { status: 400 }
         );
       }
 
-      // 1. Fetch active allocation
-      const currentAllocation = await prisma.accommodationAllocation.findUnique({
-        where: { id: allocationId },
-        include: {
-          participant: true,
-          bed: {
-            include: {
-              room: {
-                include: { hostel: true },
+      // 1. Fetch active allocation by allocationId or currentBedId
+      let currentAllocation = null;
+      if (allocationId) {
+        currentAllocation = await prisma.accommodationAllocation.findUnique({
+          where: { id: allocationId },
+          include: {
+            participant: true,
+            bed: {
+              include: {
+                room: {
+                  include: { hostel: true },
+                },
               },
             },
           },
-        },
-      });
+        });
+      } else if (body.currentBedId) {
+        currentAllocation = await prisma.accommodationAllocation.findFirst({
+          where: { bedId: body.currentBedId, status: "ACTIVE" },
+          include: {
+            participant: true,
+            bed: {
+              include: {
+                room: {
+                  include: { hostel: true },
+                },
+              },
+            },
+          },
+        });
+      }
 
       if (!currentAllocation || currentAllocation.status !== "ACTIVE") {
         return NextResponse.json(
@@ -185,3 +203,6 @@ export const POST = withAuth(
     auditResource: "accommodation",
   }
 );
+
+export const PATCH = POST;
+

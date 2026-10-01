@@ -66,6 +66,15 @@ model Match {
   downstreamMatchId  String?       // Downstream internal match ID
   downstreamSlot     String?       // "A" | "B"
   downstreamMatchNumber String?    // "M010"
+  technicalOfficialId   String?
+  technicalOfficialName String?
+  courtOfficials        String?
+  handoffStatus         String?       @default("PENDING") // "PENDING", "SENT_TO_UMPIRE", "ACCEPTED_BY_UMPIRE"
+  handoffAt             DateTime?
+  handoffBy             String?
+  preMatchReporting     PreMatchReporting?
+  courtReadinessChecks  CourtReadinessCheck[]
+  resultCommunications  ResultCommunication[]
   events             MatchEvent[]
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -75,6 +84,68 @@ model Match {
   @@index([pool])
   @@index([roundStage])
   @@map("matches")
+}
+
+model CourtReadinessCheck {
+  id          String   @id @default(cuid())
+  courtNumber String
+  matchId     String?
+  match       Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  checkItem   String   // "playing_surface", "net_and_posts", "lighting", "umpire_station", "shuttlecock_stock"
+  checkName   String   // Display label
+  status      String   @default("READY") // "PENDING", "READY", "ISSUE"
+  notes       String?
+  actorEmail  String
+  checkedAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([courtNumber])
+  @@index([matchId])
+  @@map("court_readiness_checks")
+}
+
+model PreMatchReporting {
+  id                 String    @id @default(cuid())
+  matchId            String    @unique
+  match              Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamAReported      Boolean   @default(false)
+  teamBReported      Boolean   @default(false)
+  officialsPresent   Boolean   @default(false)
+  courtReady         Boolean   @default(false)
+  checkComplete      Boolean   @default(false)
+  shuttleFeeStatus   String    @default("NOT_REQUIRED") // "REQUIRED", "NOT_REQUIRED", "PENDING", "PAID", "VERIFIED", "WAIVED"
+  shuttleFeeAmount   Float     @default(0)
+  shuttleFeeReceipt  String?
+  reportedBy         String?   // actor email
+  reportedAt         DateTime?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([matchId])
+  @@map("pre_match_reportings")
+}
+
+model ResultCommunication {
+  id             String    @id @default(cuid())
+  matchId        String
+  match          Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  committee      String    // "ACCOMMODATION", "FINANCE", "TRANSPORTATION"
+  status         String    @default("SENT") // "PENDING", "SENT", "ACKNOWLEDGED", "FAILED", "NOT_CONFIGURED"
+  channel        String    @default("IN_APP_EVENT") // "IN_APP_EVENT", "EMAIL", "DISPATCH"
+  payload        String    // JSON string containing tournamentId, matchId, matchNumber, team1, team2, winner, result, timestamp
+  sentAt         DateTime  @default(now())
+  acknowledgedAt DateTime?
+  errorMessage   String?
+  retryCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([matchId, committee])
+  @@index([matchId])
+  @@index([committee])
+  @@index([status])
+  @@map("result_communications")
 }
 
 model MatchEvent {

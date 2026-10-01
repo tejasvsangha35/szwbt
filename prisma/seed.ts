@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { seedRbacData } from "../src/lib/rbac/seed";
+import { seedInstitutions } from "./seed-institutions";
 
 const prisma = new PrismaClient();
 
@@ -21,91 +23,12 @@ async function main() {
     });
   }
 
-  // 2. Clear & Seed Day 1 (OCT 18) Matches
-  await prisma.match.deleteMany({ where: { dayId: "OCT18" } });
-
-  const oct18Matches = [
-    {
-      dayId: "OCT18",
-      time: "09:00 IST",
-      category: "Women's Singles",
-      court: "Court 01",
-      matchNumber: "R1 - Match 1",
-      playerA: "Ananya Sharma",
-      institutionA: "KLE Technological University",
-      playerB: "Priya Nair",
-      institutionB: "Calicut University",
-      scoreA: "21,18,14",
-      scoreB: "19,21,11",
-      status: "LIVE",
-    },
-    {
-      dayId: "OCT18",
-      time: "10:30 IST",
-      category: "Women's Doubles",
-      court: "Court 02",
-      matchNumber: "R1 - Match 2",
-      playerA: "V. Menon / S. Iyer",
-      institutionA: "NIT Trichy",
-      playerB: "K. Reddy / M. Shah",
-      institutionB: "Osmania University",
-      scoreA: "21,21",
-      scoreB: "14,16",
-      status: "COMPLETED",
-    },
-    {
-      dayId: "OCT18",
-      time: "12:00 IST",
-      category: "Women's Singles",
-      court: "Court 01",
-      matchNumber: "R1 - Match 3",
-      playerA: "Kavya Sundaram",
-      institutionA: "Anna University",
-      playerB: "Riya Patel",
-      institutionB: "Andhra University",
-      status: "UPCOMING",
-    },
-    {
-      dayId: "OCT18",
-      time: "14:00 IST",
-      category: "Women's Doubles",
-      court: "Court 03",
-      matchNumber: "R1 - Match 4",
-      playerA: "P. Nair / A. Rao",
-      institutionA: "Kerala Sports Academy",
-      playerB: "D. Roy / S. Das",
-      institutionB: "Bangalore University",
-      status: "UPCOMING",
-    },
-    {
-      dayId: "OCT18",
-      time: "16:00 IST",
-      category: "Institution Teams",
-      court: "Court 01",
-      matchNumber: "R1 - Tie 1",
-      playerA: "KLE Tech Titans",
-      institutionA: "KLE Tech Hubballi",
-      playerB: "Anna Univ Strikers",
-      institutionB: "Anna University Chennai",
-      status: "UPCOMING",
-    },
-    {
-      dayId: "OCT18",
-      time: "17:30 IST",
-      category: "Institution Teams",
-      court: "Court 02",
-      matchNumber: "R1 - Tie 2",
-      playerA: "Calicut Smashers",
-      institutionA: "University of Calicut",
-      playerB: "NIT Warriors",
-      institutionB: "NIT Trichy",
-      status: "UPCOMING",
-    },
-  ];
-
-  for (const m of oct18Matches) {
-    await prisma.match.create({ data: m });
-  }
+  // 2. Clear Existing Matches so the system starts with zero dummy tournament data
+  await prisma.resultCommunication.deleteMany({});
+  await prisma.courtReadinessCheck.deleteMany({});
+  await prisma.preMatchReporting.deleteMany({});
+  await prisma.matchEvent.deleteMany({});
+  await prisma.match.deleteMany({});
 
   // 3. Seed Official Credentials
   const officials = [
@@ -147,7 +70,7 @@ async function main() {
     },
     {
       email: "player@szwbt2026.edu",
-      name: "Ananya Sharma",
+      name: "Tournament Participant",
       role: "PARTICIPANT",
       badge: "PLAYER HUD",
       password: "szwbt2026pass",
@@ -200,16 +123,16 @@ async function main() {
     });
   }
 
-  // 4. Seed Courts
+  // 4. Seed Courts (Strictly 4 physical courts available, none in dummy LIVE state)
+  await prisma.court.deleteMany({
+    where: { courtNumber: { in: ["Court 05", "Court 06", "Court 07", "Court 08"] } },
+  });
+
   const courts = [
-    { courtNumber: "Court 01", status: "LIVE", umpire: "BWF Umpire 1 (Dr. P Kore Arena)" },
-    { courtNumber: "Court 02", status: "READY", umpire: "BWF Umpire 2" },
-    { courtNumber: "Court 03", status: "READY", umpire: "BWF Umpire 3" },
-    { courtNumber: "Court 04", status: "READY", umpire: "BWF Umpire 4" },
-    { courtNumber: "Court 05", status: "READY", umpire: "BWF Umpire 5" },
-    { courtNumber: "Court 06", status: "READY", umpire: "BWF Umpire 6" },
-    { courtNumber: "Court 07", status: "READY", umpire: "BWF Umpire 7" },
-    { courtNumber: "Court 08", status: "READY", umpire: "BWF Umpire 8" },
+    { courtNumber: "Court 01", status: "AVAILABLE", umpire: null, venue: "Main Indoor Stadium", isActive: true },
+    { courtNumber: "Court 02", status: "AVAILABLE", umpire: null, venue: "Main Indoor Stadium", isActive: true },
+    { courtNumber: "Court 03", status: "AVAILABLE", umpire: null, venue: "Main Indoor Stadium", isActive: true },
+    { courtNumber: "Court 04", status: "AVAILABLE", umpire: null, venue: "Main Indoor Stadium", isActive: true },
   ];
 
   for (const court of courts) {
@@ -219,6 +142,12 @@ async function main() {
       create: court,
     });
   }
+
+  // 5. Seed RBAC Users, Roles & Permissions
+  await seedRbacData();
+
+  // 6. Seed University & Institution Master Data
+  await seedInstitutions();
 
   console.log("Database seeded successfully with PostgreSQL!");
 }

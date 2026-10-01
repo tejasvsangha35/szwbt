@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
+import { normalizeStateName } from "@/data/institutions";
 import { logAuditEvent } from "@/lib/rbac/audit";
 
 interface CsvRow {
@@ -20,15 +21,39 @@ interface ValidationError {
   message: string;
 }
 
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim().replace(/^"|"$/g, ""));
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim().replace(/^"|"$/g, ""));
+  return result;
+}
+
 function parseCsv(csvText: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return { headers: [], rows: [] };
   
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/"/g, ""));
+  const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase().replace(/"/g, ""));
   const rows: Record<string, string>[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+    const values = parseCsvLine(lines[i]);
     if (values.every((v) => !v)) continue; // skip empty lines
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => {
@@ -88,7 +113,7 @@ export const POST = withAuth(
         const rowNum = i + 2; // 1-indexed + header row
 
         const universityName = (row.university_name || "").trim();
-        const state = (row.state || "").trim();
+        const state = normalizeStateName(row.state);
         const code = (row.institution_code || "").trim();
 
         if (!universityName) {

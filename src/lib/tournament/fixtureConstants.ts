@@ -1,4 +1,10 @@
 // ─────────────────────────────────────────────────────────────
+// TOURNAMENT COURT CAPACITY & SPECIFICATION (SINGLE SOURCE OF TRUTH)
+// ─────────────────────────────────────────────────────────────
+export const COURT_COUNT = 4;
+export const TOURNAMENT_COURTS = ["Court 01", "Court 02", "Court 03", "Court 04"] as const;
+
+// ─────────────────────────────────────────────────────────────
 // OFFICIAL ROUND 1 FIXTURE MATCH FLOW (13 MATCHES PER POOL)
 // ─────────────────────────────────────────────────────────────
 export const ROUND_1_MATCH_FLOW = [

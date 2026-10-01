@@ -25,13 +25,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const docs = participant.documents || [];
+    const isVerified = (participant.status === "APPROVED" || participant.status === "ACTIVE") &&
+      docs.length > 0 &&
+      docs.every((d: any) => d.status === "VERIFIED");
+
     let qrToken = participant.qrCode;
-    if (!qrToken) {
-      // Generate deterministic opaque token if not already set
-      qrToken = `sz26_qr_pt_${participant.id.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-      await prisma.participant.update({
-        where: { id: participant.id },
-        data: { qrCode: qrToken },
+    if (!isVerified || !qrToken) {
+      return NextResponse.json({
+        success: true,
+        pass: null,
+        isVerified: false,
+        message: "Accreditation QR pass has not been generated yet. All details and documents must be uploaded and verification status must show successful.",
       });
     }
 

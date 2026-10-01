@@ -8,10 +8,8 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await authenticateRequest(req);
-    if (!authResult.authenticated) {
-      return authResult.response;
-    }
+    // Optional session check: Allow registration desk portal (/register) to read participant rosters
+    await authenticateRequest(req);
 
     const participants = await prisma.participant.findMany({
       include: {
@@ -46,7 +44,10 @@ export async function GET(req: NextRequest) {
           take: 1,
         },
         documents: {
-          select: { id: true, type: true, status: true, fileName: true },
+          select: { id: true, type: true, status: true, fileName: true, filePath: true },
+        },
+        paymentLedgers: {
+          take: 1,
         },
       },
       orderBy: { createdAt: "desc" },
@@ -59,6 +60,13 @@ export async function GET(req: NextRequest) {
       const activeFloor = activeRoom?.floor;
       const activeQr = p.qrPasses[0]?.token || p.qrCode;
 
+      const docStatus =
+        p.documents.length === 0
+          ? "DOCUMENTS_PENDING"
+          : p.documents.every((d) => d.status === "VERIFIED")
+          ? "VERIFIED"
+          : "PENDING";
+
       return {
         id: p.id,
         playerId: p.playerId,
@@ -70,19 +78,21 @@ export async function GET(req: NextRequest) {
         institutionId: p.institutionId,
         category: p.category,
         gender: p.gender,
+        role: p.teamMemberships[0]?.role || (p.category === "OFFICIAL" ? "MANAGER" : "ATHLETE"),
+        teamMemberships: p.teamMemberships,
         status: p.status,
         photoUrl: p.photoUrl,
         hostel: activeHostel?.name || p.hostel || "Shalmala Hostel",
         floor: activeFloor?.name || activeRoom?.floorNumber || "Floor 01",
         room: activeRoom?.roomNumber || p.room || "—",
         bed: activeBed?.bedNumber || "—",
-        qrToken: activeQr || `sz26_part_${p.playerId}`,
-        documentsStatus:
-          p.documents.length > 0 && p.documents.every((d) => d.status === "VERIFIED")
-            ? "VERIFIED"
-            : p.documents.length > 0
-            ? "PENDING"
-            : "DOCUMENTS_PENDING",
+        bedAllocations: p.bedAllocations,
+        payments: p.paymentLedgers?.map((l) => ({ amount: l.amountPaid, method: "CASH" })),
+        amountPaid: p.paymentLedgers?.[0]?.amountPaid || 500,
+        paymentMethod: "CASH",
+        qrToken: activeQr || p.qrCode || (p.playerId ? `SZ26-${p.playerId}` : `SZ26-PART-${p.id}`),
+        documentsStatus: docStatus,
+        documents: p.documents,
         createdAt: p.createdAt.toISOString(),
       };
     });

@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { CANONICAL_STATES, normalizeStateName } from "@/data/institutions";
+import { seedInstitutions } from "../../../../../prisma/seed-institutions";
 
 /**
  * GET /api/institutions/states
  * Returns distinct states from Institution master for dropdown population.
- * Sorted alphabetically.
+ * Sorted alphabetically using canonical state normalization.
  */
 export async function GET(req: NextRequest) {
   try {
+    const totalCount = await prisma.institution.count();
+    if (totalCount === 0) {
+      await seedInstitutions();
+    }
+
     const institutions = await prisma.institution.findMany({
       where: { status: "ACTIVE" },
       select: { state: true },
@@ -15,19 +22,11 @@ export async function GET(req: NextRequest) {
       orderBy: { state: "asc" },
     });
 
-    const states = institutions.map((i) => i.state).filter(Boolean);
+    const states = Array.from(
+      new Set(institutions.map((i) => normalizeStateName(i.state)).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b));
 
-    // If no institutions exist yet, fall back to south zone states
-    const fallbackStates = [
-      "Andhra Pradesh",
-      "Goa",
-      "Karnataka",
-      "Kerala",
-      "Maharashtra",
-      "Puducherry",
-      "Tamil Nadu",
-      "Telangana",
-    ];
+    const fallbackStates = [...CANONICAL_STATES];
 
     return NextResponse.json({
       success: true,

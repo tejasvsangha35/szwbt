@@ -43,11 +43,11 @@ export async function middleware(req: NextRequest) {
   // 4. Cryptographic Token Signature & Expiry Verification (Edge Web Crypto)
   const verified = await verifyTokenEdge(token);
 
-  if (!verified) {
+  if (!verified || verified.roles.length === 0) {
     if (isPrefetch) {
       return new NextResponse(null, { status: 204 });
     }
-    // Corrupted or expired session: Redirect to login and clear cookie
+    // Corrupted, unprovisioned, or expired session: Redirect to login and clear cookie
     const loginUrl = new URL("/login", req.url);
     const safeReturnTo = sanitizeRedirectUrl(pathname, "/admin");
     loginUrl.searchParams.set("returnTo", safeReturnTo);
@@ -108,6 +108,5 @@ export const config = {
     "/team/:path*",
     "/dashboard/:path*",
     "/profile/:path*",
-    "/scanner/:path*",
   ],
 };

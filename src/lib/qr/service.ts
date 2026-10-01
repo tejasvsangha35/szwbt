@@ -650,7 +650,6 @@ export async function resolveQrOperation(
   if (operation === "DOCUMENT_SCANNING") {
     const hasScannerAccess =
       context.roles.includes("SUPER_ADMIN") ||
-      context.roles.includes("DOCUMENT_SCANNER") ||
       context.permissions.includes(PERMISSIONS.DOCUMENT_UPLOAD);
 
     if (!hasScannerAccess) {

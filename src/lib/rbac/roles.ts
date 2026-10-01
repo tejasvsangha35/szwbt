@@ -21,7 +21,6 @@ export const ROLES = {
   TEAM_MANAGER: "TEAM_MANAGER",
   PARTICIPANT: "PARTICIPANT",
   SUPPORT_STAFF: "SUPPORT_STAFF",
-  DOCUMENT_SCANNER: "DOCUMENT_SCANNER",
 } as const;
 
 export type RoleName = typeof ROLES[keyof typeof ROLES];
@@ -109,10 +108,10 @@ export const ROLE_DEFINITIONS: Record<RoleName, RoleDefinition> = {
   ACCOMMODATION_STAFF: {
     name: ROLES.ACCOMMODATION_STAFF,
     displayName: "Accommodation Staff",
-    description: "Hostel logistics: Shalmala & Vindhya 5-bed room and bed allocations, check-ins, vacating, and room transfers.",
+    description: "Hostel logistics: Shalmala & Vindhya check-ins, vacating, and editing assigned beds. Bed allocation managed at desk.",
     defaultPermissions: [
       PERMISSIONS.ACCOMMODATION_READ,
-      PERMISSIONS.ACCOMMODATION_ALLOCATE,
+      PERMISSIONS.ACCOMMODATION_CHECKIN,
       PERMISSIONS.ACCOMMODATION_MOVE,
       PERMISSIONS.ACCOMMODATION_VACATE,
       PERMISSIONS.PARTICIPANT_READ,
@@ -308,22 +307,6 @@ export const ROLE_DEFINITIONS: Record<RoleName, RoleDefinition> = {
       PERMISSIONS.SUPPORT_CLOSE,
       PERMISSIONS.SUPPORT_ESCALATE,
       PERMISSIONS.SUPPORT_COMMENT,
-    ],
-  },
-
-  DOCUMENT_SCANNER: {
-    name: ROLES.DOCUMENT_SCANNER,
-    displayName: "Document Scanner",
-    description: "Mobile phone-first document scanning: scan participant QR, capture and verify identity documents using phone camera.",
-    defaultPermissions: [
-      PERMISSIONS.PARTICIPANT_READ,
-      PERMISSIONS.TEAM_READ,
-      PERMISSIONS.REGISTRATION_READ,
-      PERMISSIONS.DOCUMENT_READ,
-      PERMISSIONS.DOCUMENT_UPLOAD,
-      PERMISSIONS.DOCUMENT_PROCESS,
-      PERMISSIONS.DOCUMENT_VERIFY,
-      PERMISSIONS.INSTITUTION_READ,
     ],
   },
 };

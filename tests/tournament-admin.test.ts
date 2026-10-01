@@ -249,7 +249,7 @@ test("TOURNAMENT ADMIN COMMAND CENTER TESTS (/admin/tournament)", async (t) => {
     assert.equal(listRes.status, 200);
     const listBody = await listRes.json();
     assert.equal(listBody.success, true);
-    assert(listBody.courts.length >= 8);
+    assert(listBody.courts.length >= 4);
 
     const targetCourt = listBody.courts[0];
     const updateReq = new NextRequest(`http://localhost:3000/api/tournament/courts/${targetCourt.id}`, {
@@ -278,31 +278,54 @@ test("TOURNAMENT ADMIN COMMAND CENTER TESTS (/admin/tournament)", async (t) => {
       create: { id: "CURRENT_SCHEDULE_LOCK", isLocked: false },
     });
 
-    // Check existing match to collide with
-    const existing = await prisma.match.findFirst();
-    assert(existing, "An existing match fixture must exist for collision test");
+    // Check existing match to collide with or create a temporary one for testing
+    let existing = await prisma.match.findFirst();
+    let createdTemp = false;
+    if (!existing) {
+      existing = await prisma.match.create({
+        data: {
+          dayId: "OCT18",
+          court: "Court 01",
+          time: "09:00 IST",
+          category: "Women's Singles",
+          matchNumber: "COLLISION_BASE_M1",
+          playerA: "Player Alpha",
+          institutionA: "Institution Alpha",
+          playerB: "Player Beta",
+          institutionB: "Institution Beta",
+          status: "SCHEDULED",
+        },
+      });
+      createdTemp = true;
+    }
 
-    const conflictReq = new NextRequest("http://localhost:3000/api/tournament/schedule", {
-      method: "POST",
-      headers: {
-        cookie: `szwbt_session=${tournamentAdminToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        dayId: existing.dayId,
-        court: existing.court,
-        time: existing.time,
-        category: "Women's Singles",
-        matchNumber: "COLLISION_TEST_99",
-        playerA: "Test Player 1",
-        playerB: "Test Player 2",
-      }),
-    });
-    const conflictRes = await scheduleTournamentMatch(conflictReq);
-    assert.equal(conflictRes.status, 409);
-    const conflictBody = await conflictRes.json();
-    assert.equal(conflictBody.success, false);
-    assert(conflictBody.error.includes("Court Conflict"));
+    try {
+      const conflictReq = new NextRequest("http://localhost:3000/api/tournament/schedule", {
+        method: "POST",
+        headers: {
+          cookie: `szwbt_session=${tournamentAdminToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          dayId: existing.dayId,
+          court: existing.court,
+          time: existing.time,
+          category: "Women's Singles",
+          matchNumber: "COLLISION_TEST_99",
+          playerA: "Test Player 1",
+          playerB: "Test Player 2",
+        }),
+      });
+      const conflictRes = await scheduleTournamentMatch(conflictReq);
+      assert.equal(conflictRes.status, 409);
+      const conflictBody = await conflictRes.json();
+      assert.equal(conflictBody.success, false);
+      assert(conflictBody.error.includes("Court Conflict"));
+    } finally {
+      if (createdTemp && existing) {
+        await prisma.match.delete({ where: { id: existing.id } });
+      }
+    }
   });
 
   // Test 11: Schedule Lock prevents fixture modification (423 Locked)
@@ -322,7 +345,7 @@ test("TOURNAMENT ADMIN COMMAND CENTER TESTS (/admin/tournament)", async (t) => {
       },
       body: JSON.stringify({
         dayId: "OCT21",
-        court: "Court 08",
+        court: "Court 04",
         time: "17:00 IST",
         category: "Women's Singles",
         matchNumber: "LOCK_TEST_M1",

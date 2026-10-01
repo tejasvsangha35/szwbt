@@ -677,7 +677,7 @@ function OrganizerDashboardContent() {
             <div className="p-4 bg-pixel-black/40 border border-pixel-gray-800 space-y-2 text-pixel-gray-400">
               <h4 className="font-pixel text-xs text-pixel-cyan uppercase">ORGANIZER COORDINATION NOTICE</h4>
               <p className="leading-relaxed">
-                The Organizer Control Center integrates real-time telemetry across all 8 competition courts, 2 hostel accommodation wings, and airport/station fleet shuttles. Cross-departmental records update continuously.
+                The Organizer Control Center integrates real-time telemetry across all 4 competition courts, 2 hostel accommodation wings, and airport/station fleet shuttles. Cross-departmental records update continuously.
               </p>
             </div>
           </div>

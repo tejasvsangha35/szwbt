@@ -474,5 +474,30 @@ body {
   border-color: #e2e8f0 !important;
 }
 
+/* Print styles for official accreditation pass */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #accreditation-pass-card,
+  #accreditation-pass-card * {
+    visibility: visible;
+  }
+  #accreditation-pass-card {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: none !important;
+    border: 2px solid #0b1528 !important;
+    background-color: #ffffff !important;
+    color: #0b1528 !important;
+    width: 360px !important;
+    margin: 0 !important;
+    padding: 24px !important;
+  }
+}
+
+
 
 

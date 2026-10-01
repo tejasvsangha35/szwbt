@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/rbac/guard";
+import { authenticateRequest } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
@@ -8,25 +8,29 @@ import { UserContext } from "@/lib/rbac/service";
  * GET /api/accommodation/rooms
  * Returns rooms and their EXACT 5 BEDS with live occupancy and active allocation details.
  */
-export const GET = withAuth(
-  async (req: NextRequest, context: UserContext) => {
-    try {
+export async function GET(req: NextRequest) {
+  try {
+    // Optional session check: Allow registration desk portal (/register) to read room and bed topography
+    await authenticateRequest(req);
       const { searchParams } = new URL(req.url);
-      const hostelId = searchParams.get("hostelId") || "SHALMALA";
+      const hostelParam = searchParams.get("hostelId");
       const floor = searchParams.get("floor");
       const statusFilter = searchParams.get("status");
 
-      const whereClause: any = {
-        hostelId,
-      };
+      const whereClause: any = {};
+
+      if (hostelParam && hostelParam !== "ALL") {
+        whereClause.hostelId = hostelParam;
+      }
 
       if (floor && floor !== "ALL") {
-        whereClause.floorNumber = floor;
+        whereClause.floorNumber = { equals: floor, mode: "insensitive" };
       }
 
       const rooms = await prisma.room.findMany({
         where: whereClause,
         include: {
+          hostel: true,
           beds: {
             orderBy: { bedNumber: "asc" },
             include: {
@@ -46,6 +50,15 @@ export const GET = withAuth(
       const formattedRooms = rooms.map((room) => {
         const beds = room.beds.map((bed) => {
           const activeAlloc = bed.allocations[0];
+          const isCheckedIn = Boolean(activeAlloc?.allocatedBy?.includes("CHECKED_IN"));
+          let checkInIso = activeAlloc ? activeAlloc.checkInDate.toISOString() : null;
+          if (isCheckedIn && activeAlloc?.allocatedBy) {
+            const match = activeAlloc.allocatedBy.match(/CHECKED_IN:([^|]+)/);
+            if (match && match[1]) {
+              checkInIso = match[1];
+            }
+          }
+
           return {
             id: bed.id,
             bedNumber: bed.bedNumber,
@@ -62,7 +75,8 @@ export const GET = withAuth(
                   role: activeAlloc.participant.category || "PLAYER",
                   teamName: activeAlloc.team?.name || activeAlloc.participant.institution,
                   allocatedBy: activeAlloc.allocatedBy,
-                  checkInDate: activeAlloc.checkInDate.toISOString(),
+                  checkInDate: checkInIso,
+                  isCheckedIn,
                 }
               : null,
           };
@@ -76,6 +90,7 @@ export const GET = withAuth(
         return {
           id: room.id,
           hostelId: room.hostelId,
+          hostelName: room.hostel?.name || (room.hostelId === "SHALMALA" ? "Shalmala Hostel" : "Vindhya Boys Hostel"),
           roomNumber: room.roomNumber,
           floorNumber: room.floorNumber,
           capacity: room.capacity, // STRICT 5 BEDS
@@ -96,16 +111,12 @@ export const GET = withAuth(
 
       return NextResponse.json({
         success: true,
-        hostelId,
+        hostelId: hostelParam || "ALL",
         count: result.length,
         rooms: result,
       });
     } catch (err: any) {
       console.error("[ACCOMMODATION_ROOMS_ERROR]", err);
-      return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-    }
-  },
-  {
-    permissions: [PERMISSIONS.ACCOMMODATION_READ],
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-);
+}

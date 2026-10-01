@@ -499,10 +499,9 @@ export const POST = withAuth(
           const m = await tx.match.update({
             where: { id },
             data: {
-              status: "COMPLETED",
+              status: "RESULT_SUBMITTED",
               winner,
               actualEndTime: new Date(),
-              // Note: Match Official submits result; public portal publication is controlled separately
               isPublished: false,
             },
           });

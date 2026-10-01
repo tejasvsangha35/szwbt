@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
 import { logAuditEvent } from "@/lib/rbac/audit";
+import { generateParticipantQr } from "@/lib/qr/service";
 
 /**
  * POST /api/registration/complete
@@ -46,19 +47,7 @@ export const POST = withAuth(
         );
       }
 
-      // Check condition: Active QR Pass exists
-      const hasQr = !!(participant.qrCode || participant.qrPasses.length > 0);
-      if (!hasQr) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Registration cannot complete: No active accreditation QR pass has been generated.",
-          },
-          { status: 400 }
-        );
-      }
-
-      // Check condition: Documents captured and verified
+      // Check condition: Documents captured and verified first
       // At least 1 document must be present and ALL uploaded documents must be verified
       const verifiedDocs = participant.documents.filter((d) => d.status === "VERIFIED");
       const unverifiedDocs = participant.documents.filter((d) => d.status !== "VERIFIED");
@@ -121,14 +110,22 @@ export const POST = withAuth(
         });
 
         // Transition Participant Status to APPROVED
-        const updatedParticipant = await tx.participant.update({
+        let updatedParticipant = await tx.participant.update({
           where: { id: participant.id },
           data: {
             status: "APPROVED",
           },
         });
 
-        return { updatedParticipant, payment };
+        // Ensure QR Pass is generated now that details and documents are verified!
+        let activeQrToken = participant.qrCode || participant.qrPasses[0]?.token;
+        if (!activeQrToken) {
+          const generated = await generateParticipantQr(participant.id, context.user.email, { db: tx });
+          activeQrToken = generated.token;
+          updatedParticipant = await tx.participant.findUnique({ where: { id: participant.id } });
+        }
+
+        return { updatedParticipant, payment, qrToken: activeQrToken };
       });
 
       // Audit Log
@@ -159,6 +156,7 @@ export const POST = withAuth(
           name: result.updatedParticipant.name,
           institution: result.updatedParticipant.institution,
           status: result.updatedParticipant.status,
+          qrToken: result.qrToken,
           isCompleted: true,
         },
         payment: {

@@ -31,15 +31,18 @@ export type MatchStatusType = (typeof MATCH_STATUS)[keyof typeof MATCH_STATUS];
 
 export const COURT_STATUS = {
   AVAILABLE: "AVAILABLE",
+  PREPARING: "PREPARING",
   RESERVED: "RESERVED",
   ASSIGNED: "ASSIGNED",
   READY: "READY",
   LIVE: "LIVE",
   PAUSED: "PAUSED",
+  DELAYED: "DELAYED",
   POST_MATCH: "POST_MATCH",
   COMPLETED: "COMPLETED",
   MAINTENANCE: "MAINTENANCE",
   BLOCKED: "BLOCKED",
+  OUT_OF_SERVICE: "OUT_OF_SERVICE",
 } as const;
 
 export type CourtStatusType = (typeof COURT_STATUS)[keyof typeof COURT_STATUS];
@@ -236,7 +239,7 @@ export async function resolveKnockoutDependencies(
     let nextPlayerB = futureMatch.playerB;
     let nextInstB = futureMatch.institutionB;
 
-    const checkSlot = (slot: string) => {
+    const checkSlotA = (slot: string) => {
       const u = (slot || "").toUpperCase();
       return (
         u.includes(`WINNER OF ${matchNum}`) ||
@@ -244,17 +247,33 @@ export async function resolveKnockoutDependencies(
         u.includes(`WINNER OF MATCH ${matchNum}`) ||
         u.includes(`WINNER_OF_MATCH_${matchNum}`) ||
         u.includes(matchNum) ||
-        u.includes(matchId)
+        u.includes(matchId) ||
+        futureMatch.sourceAMatchId === matchId ||
+        (futureMatch.id === (completedMatch as any).downstreamMatchId && (completedMatch as any).downstreamSlot === "A")
       );
     };
 
-    if (checkSlot(futureMatch.playerA)) {
+    const checkSlotB = (slot: string) => {
+      const u = (slot || "").toUpperCase();
+      return (
+        u.includes(`WINNER OF ${matchNum}`) ||
+        u.includes(`WINNER_OF_${matchNum}`) ||
+        u.includes(`WINNER OF MATCH ${matchNum}`) ||
+        u.includes(`WINNER_OF_MATCH_${matchNum}`) ||
+        u.includes(matchNum) ||
+        u.includes(matchId) ||
+        futureMatch.sourceBMatchId === matchId ||
+        (futureMatch.id === (completedMatch as any).downstreamMatchId && (completedMatch as any).downstreamSlot === "B")
+      );
+    };
+
+    if (checkSlotA(futureMatch.playerA)) {
       nextPlayerA = winnerName;
       nextInstA = winnerInst;
       updatedA = true;
     }
 
-    if (checkSlot(futureMatch.playerB)) {
+    if (checkSlotB(futureMatch.playerB)) {
       nextPlayerB = winnerName;
       nextInstB = winnerInst;
       updatedB = true;

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "seed": "npx tsx scripts/seed-all.ts",
     "test:rbac": "npx tsx tests/rbac.test.ts",
     "test:team": "npx tsx tests/team-manager.test.ts",
     "test:participant": "npx tsx tests/participant.test.ts",
@@ -32,6 +33,7 @@
     "lucide-react": "^0.475.0",
     "next": "^15.2.1",
     "nodemailer": "^10.0.10",
+    "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -51,5 +53,12 @@
     "prisma": "5.22.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
   }
 }

@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { normalizeStateName, MASTER_INSTITUTIONS } from "@/data/institutions";
+import { seedInstitutions } from "../../../../prisma/seed-institutions";
 
 /**
  * GET /api/institutions
  * Public institution listing for registration dropdowns.
  * Supports state filter, search, and status filter.
+ * Applies state name normalization rules.
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const state = searchParams.get("state");
+    const rawState = searchParams.get("state");
+    const normalizedState = rawState ? normalizeStateName(rawState) : null;
     const search = searchParams.get("q") || searchParams.get("search");
     const status = searchParams.get("status") || "ACTIVE";
-    const limit = parseInt(searchParams.get("limit") || "200");
+    const limit = parseInt(searchParams.get("limit") || "500");
+
+    // Self-healing check: if database table is empty, seed from master dataset
+    const totalCount = await prisma.institution.count();
+    if (totalCount === 0) {
+      await seedInstitutions();
+    }
 
     const where: any = {};
 
@@ -20,8 +30,8 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
 
-    if (state && state !== "ALL") {
-      where.state = { equals: state, mode: "insensitive" };
+    if (normalizedState && normalizedState !== "ALL") {
+      where.state = { equals: normalizedState, mode: "insensitive" };
     }
 
     if (search && search.trim()) {

@@ -46,7 +46,7 @@ export function TournamentAdminShell({ children, activeTab }: TournamentAdminShe
     isLocked: false,
     totalMatches: 0,
     liveMatches: 0,
-    totalCourts: 8,
+    totalCourts: 4,
   });
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export function TournamentAdminShell({ children, activeTab }: TournamentAdminShe
               isLocked: data.tournament.isScheduleLocked || false,
               totalMatches: data.metrics?.totalMatches || 0,
               liveMatches: data.metrics?.liveMatches || 0,
-              totalCourts: data.metrics?.courts || 8,
+              totalCourts: data.metrics?.courts || 4,
             });
           }
         }

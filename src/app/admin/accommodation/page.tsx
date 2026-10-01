@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { ROLE_MATRIX } from "@/data/dashboard";
 import { useAuth } from "@/lib/rbac/useAuth";
+import { ROLES } from "@/lib/rbac/roles";
 import { HostelSelector } from "@/components/accommodation/HostelSelector";
 import { RoomCard, RoomData } from "@/components/accommodation/RoomCard";
 import { BedData } from "@/components/accommodation/BedCard";
+import { AccommodationTable } from "@/components/accommodation/AccommodationTable";
 import { AllocationDrawer } from "@/components/accommodation/AllocationDrawer";
 import { PersonSearchItem } from "@/components/accommodation/PersonSearch";
 import { FoodPackageSection } from "@/components/accommodation/FoodPackageSection";
@@ -15,7 +17,8 @@ import {
   Home, Key, QrCode, Search, Users, UserCheck, AlertTriangle,
   CreditCard, History, RefreshCw, X, CheckCircle2, MoveRight,
   UserMinus, Camera, Upload, ShieldAlert, ArrowRight, ShieldCheck,
-  Building2, Layers, DollarSign, Filter, Sparkles, Loader2, Utensils
+  Building2, Layers, DollarSign, Filter, Sparkles, Loader2, Utensils,
+  Pencil, Table, LayoutGrid
 } from "lucide-react";
 
 interface TeamResolvedData {
@@ -80,7 +83,11 @@ interface HistoryRecord {
 
 function AccommodationAdminContent() {
   const currentRole = ROLE_MATRIX.find((r) => r.roleId === "accommodation_admin")!;
-  const { user, hasPermission } = useAuth();
+  const { user, roles, hasRole, hasPermission } = useAuth();
+  const isSuperAdmin = hasRole(ROLES.SUPER_ADMIN);
+  // For hostel role, bed selection / initial allocation is disabled:
+  // Only let them change checkin, checkout/vacate, and edit assigned beds.
+  const canAllocate = isSuperAdmin;
   const searchParams = useSearchParams();
 
   // ─────────────────────────────────────────────────────────────
@@ -121,6 +128,7 @@ function AccommodationAdminContent() {
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [availableFloors, setAvailableFloors] = useState<string[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
+  const [viewMode, setViewMode] = useState<"TABLE" | "CARDS">("TABLE");
 
   // ─────────────────────────────────────────────────────────────
   // 3. TOAST & NOTIFICATIONS
@@ -462,7 +470,121 @@ function AccommodationAdminContent() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // MOVE PERSON BETWEEN ROOMS/BEDS
+  // CHECK-IN / CHANGE CHECK-IN STATUS
+  // ─────────────────────────────────────────────────────────────
+  const handleCheckIn = async (bed: BedData, room: RoomData, newStatus: boolean) => {
+    const allocId = bed.occupant?.allocationId;
+    if (!allocId && !bed.id) return;
+
+    try {
+      const res = await fetch("/api/accommodation/allocations/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allocationId: allocId,
+          bedId: bed.id,
+          isCheckedIn: newStatus,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(
+          newStatus
+            ? `CHECK-IN CONFIRMED: ${bed.occupant?.name} in Room ${room.roomNumber} (${bed.bedNumber})`
+            : `CHECK-IN REVERTED: ${bed.occupant?.name} set back to Pending Check-In`,
+          "success"
+        );
+        fetchRooms();
+        fetchOverviewKpis();
+      } else {
+        showToast(data.error || "Failed to update check-in status", "error");
+      }
+    } catch (err: any) {
+      showToast("Network error updating check-in", "error");
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // BULK CHECK-IN (WHOLE TEAM, ROOM, OR SELECTED BATCH)
+  // ─────────────────────────────────────────────────────────────
+  const handleBulkCheckIn = async (allocationIds: string[], contextName?: string) => {
+    if (!allocationIds || allocationIds.length === 0) return;
+    try {
+      const res = await fetch("/api/accommodation/allocations/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allocationIds,
+          isCheckedIn: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(
+          `TEAM CHECK-IN COMPLETE: ${data.count} occupants checked in for ${contextName || "team"}!`,
+          "success"
+        );
+        fetchRooms();
+        fetchOverviewKpis();
+        if (resolvedTeam) {
+          resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
+        }
+      } else {
+        showToast(data.error || "Failed to bulk check in occupants", "error");
+      }
+    } catch (err: any) {
+      showToast("Network error during bulk check-in", "error");
+    }
+  };
+
+  const handleCheckInByTeam = async (teamId: string, teamName?: string) => {
+    try {
+      const res = await fetch("/api/accommodation/allocations/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamId,
+          isCheckedIn: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(
+          `ENTIRE TEAM CHECKED IN: All ${data.count} members of ${teamName || "team"} are now checked in!`,
+          "success"
+        );
+        fetchRooms();
+        fetchOverviewKpis();
+        if (resolvedTeam) {
+          resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
+        }
+      } else {
+        showToast(data.error || "Failed to check in team", "error");
+      }
+    } catch (err: any) {
+      showToast("Network error during team check-in", "error");
+    }
+  };
+
+  const handleCheckInWholeRoom = async (room: RoomData) => {
+    const pendingIds = room.beds
+      .filter((b) => b.status === "OCCUPIED" && b.occupant && !b.occupant.isCheckedIn)
+      .map((b) => b.occupant?.allocationId)
+      .filter(Boolean) as string[];
+
+    if (pendingIds.length === 0) {
+      showToast(`All occupants in Room ${room.roomNumber} are already checked in.`, "info");
+      return;
+    }
+
+    await handleBulkCheckIn(pendingIds, `Room ${room.roomNumber}`);
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // EDIT ASSIGNED BED (MOVE/TRANSFER PERSON)
   // ─────────────────────────────────────────────────────────────
   const handleConfirmMove = async () => {
     if (!moveState || !moveTargetBedId) {
@@ -473,9 +595,11 @@ function AccommodationAdminContent() {
     setIsMoveSubmitting(true);
     try {
       const res = await fetch("/api/accommodation/allocations/move", {
-        method: "PATCH",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          allocationId: moveState.bed.occupant?.allocationId,
+          targetBedId: moveTargetBedId,
           currentBedId: moveState.bed.id,
           newBedId: moveTargetBedId,
         }),
@@ -493,14 +617,14 @@ function AccommodationAdminContent() {
       }
 
       if (res.ok && data.success) {
-        showToast("PERSON MOVED SUCCESSFULLY TO NEW BED", "success");
+        showToast("ASSIGNED BED UPDATED SUCCESSFULLY", "success");
         setMoveState(null);
         setMoveTargetBedId("");
         setMoveTargetRoomId("");
         fetchRooms();
         fetchOverviewKpis();
       } else {
-        showToast(data.error || "Move failed", "error");
+        showToast(data.error || "Bed edit failed", "error");
       }
     } catch (err) {
       showToast("Network error during bed transfer", "error");
@@ -925,7 +1049,28 @@ function AccommodationAdminContent() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                {resolvedTeam.members.some((m) => m.isAllocated) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allocatedIds = resolvedTeam.members
+                        .filter((m) => m.isAllocated && m.allocation)
+                        .map((m) => (m.allocation as any).allocationId)
+                        .filter(Boolean);
+                      if (allocatedIds.length > 0) {
+                        handleBulkCheckIn(allocatedIds, resolvedTeam.teamName);
+                      } else {
+                        handleCheckInByTeam(resolvedTeam.id, resolvedTeam.teamName);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-pixel text-[10px] font-bold tracking-wider rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>CHECK IN WHOLE TEAM</span>
+                  </button>
+                )}
+
                 <div className="text-right">
                   <span className="font-pixel text-[9px] text-slate-500 block uppercase">
                     ACCOMMODATION PROGRESS
@@ -1008,20 +1153,26 @@ function AccommodationAdminContent() {
                     )}
 
                     {!member.isAllocated && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedHostelId(member.hostelEligible);
-                          showToast(
-                            `Selected ${member.name} (${member.role}). Please select an available bed in ${member.hostelEligible} Hostel.`,
-                            "info"
-                          );
-                        }}
-                        className="w-full py-1.5 px-2 bg-[#FF5A16] hover:bg-[#d94e16] text-white rounded-lg font-pixel text-[9px] font-bold tracking-wider cursor-pointer shadow-xs flex items-center justify-center gap-1 mt-1 transition-colors"
-                      >
-                        <ArrowRight className="w-3 h-3" />
-                        <span>SELECT BED IN {member.hostelEligible}</span>
-                      </button>
+                      canAllocate ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedHostelId(member.hostelEligible);
+                            showToast(
+                              `Selected ${member.name} (${member.role}). Please select an available bed in ${member.hostelEligible} Hostel.`,
+                              "info"
+                            );
+                          }}
+                          className="w-full py-1.5 px-2 bg-[#FF5A16] hover:bg-[#d94e16] text-white rounded-lg font-pixel text-[9px] font-bold tracking-wider cursor-pointer shadow-xs flex items-center justify-center gap-1 mt-1 transition-colors"
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                          <span>SELECT BED IN {member.hostelEligible}</span>
+                        </button>
+                      ) : (
+                        <div className="w-full py-1.5 px-2 bg-slate-100 text-slate-500 rounded-lg font-pixel text-[8px] font-bold tracking-wider text-center border border-slate-200 mt-1">
+                          AWAITING DESK BED ALLOCATION
+                        </div>
+                      )
                     )}
                   </div>
                 ))}
@@ -1127,19 +1278,50 @@ function AccommodationAdminContent() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* 7. ROOMS GRID (EVERY ROOM HAS EXACTLY 5 BEDS: BED 01 TO BED 05) */}
+        {/* 7. ROOMS DIRECTORY (TABULAR FORM / REGULATION 5-BED CARDS) */}
         {/* ═══════════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-2.5 gap-3">
             <div className="flex items-center gap-2">
               <Building2 className="w-5 h-5 text-[#FF5A16]" />
               <h2 className="font-pixel text-base sm:text-lg text-slate-900 font-bold tracking-wider">
                 {hostelName.toUpperCase()} — ROOM DIRECTORY ({displayedRooms.length} ROOMS)
               </h2>
             </div>
-            <span className="font-pixel text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded-md px-2 py-0.5 font-medium">
-              REGULATION 5-BED LAYOUT
-            </span>
+
+            <div className="flex items-center gap-2.5">
+              {/* View Mode Switcher: TABULAR FORM vs CARDS VIEW */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 font-pixel text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("TABLE")}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold cursor-pointer transition-all ${
+                    viewMode === "TABLE"
+                      ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Table className="w-3.5 h-3.5 text-[#FF5A16]" />
+                  <span>TABULAR FORM</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("CARDS")}
+                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold cursor-pointer transition-all ${
+                    viewMode === "CARDS"
+                      ? "bg-white text-slate-900 shadow-2xs border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 text-slate-500" />
+                  <span>CARDS VIEW</span>
+                </button>
+              </div>
+
+              <span className="font-pixel text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded-md px-2 py-1 font-medium hidden sm:inline-block">
+                REGULATION 5-BED LAYOUT
+              </span>
+            </div>
           </div>
 
           {loadingRooms ? (
@@ -1153,6 +1335,17 @@ function AccommodationAdminContent() {
             <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl font-pixel text-xs text-slate-500 shadow-xs">
               NO ROOMS FOUND MATCHING FILTER CRITERIA
             </div>
+          ) : viewMode === "TABLE" ? (
+            <AccommodationTable
+              rooms={displayedRooms}
+              hostelName={hostelName}
+              canAllocate={canAllocate}
+              onCheckInBed={handleCheckIn}
+              onBulkCheckIn={handleBulkCheckIn}
+              onEditBed={(bed, r) => setMoveState({ bed, room: r })}
+              onVacateBed={(bed, r) => setVacateState({ bed, room: r })}
+              onAllocateBed={canAllocate ? (bed, r) => setAllocatingBedState({ bed, room: r }) : undefined}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {displayedRooms.map((room) => (
@@ -1160,15 +1353,13 @@ function AccommodationAdminContent() {
                   key={room.id}
                   room={room}
                   hostelName={hostelName}
-                  onAllocateBed={(bed, r) => {
-                    setAllocatingBedState({ bed, room: r });
-                  }}
-                  onMoveBed={(bed, r) => {
-                    setMoveState({ bed, room: r });
-                  }}
-                  onVacateBed={(bed, r) => {
-                    setVacateState({ bed, room: r });
-                  }}
+                  canAllocate={canAllocate}
+                  onAllocateBed={canAllocate ? (bed, r) => setAllocatingBedState({ bed, room: r }) : undefined}
+                  onCheckInBed={handleCheckIn}
+                  onCheckInWholeRoom={handleCheckInWholeRoom}
+                  onEditBed={(bed, r) => setMoveState({ bed, room: r })}
+                  onMoveBed={(bed, r) => setMoveState({ bed, room: r })}
+                  onVacateBed={(bed, r) => setVacateState({ bed, room: r })}
                 />
               ))}
             </div>
@@ -1318,10 +1509,15 @@ function AccommodationAdminContent() {
               </button>
 
               <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-4">
-                <MoveRight className="w-5 h-5 text-[#FF5A16]" />
-                <h3 className="font-pixel text-sm text-slate-900 font-bold">
-                  TRANSFER PERSON TO NEW BED
-                </h3>
+                <Pencil className="w-5 h-5 text-[#FF5A16]" />
+                <div>
+                  <h3 className="font-pixel text-sm text-slate-900 font-bold">
+                    EDIT ASSIGNED BED &amp; ROOM REASSIGNMENT
+                  </h3>
+                  <p className="font-sans text-[11px] text-slate-500">
+                    Reassign occupant to another available room or bed in {hostelName}
+                  </p>
+                </div>
               </div>
 
               {/* Current Occupant Dossier */}
@@ -1407,7 +1603,7 @@ function AccommodationAdminContent() {
                     ) : (
                       <CheckCircle2 className="w-3.5 h-3.5" />
                     )}
-                    <span>CONFIRM TRANSFER</span>
+                    <span>CONFIRM BED CHANGE</span>
                   </button>
                 </div>
               </div>
@@ -1430,14 +1626,19 @@ function AccommodationAdminContent() {
 
               <div className="flex items-center gap-2 border-b border-rose-200 pb-3 mb-4">
                 <UserMinus className="w-5 h-5 text-rose-600" />
-                <h3 className="font-pixel text-sm text-slate-900 font-bold">
-                  VACATE &amp; RELEASE BED
-                </h3>
+                <div>
+                  <h3 className="font-pixel text-sm text-slate-900 font-bold">
+                    CHECK OUT &amp; VACATE BED
+                  </h3>
+                  <p className="font-sans text-[11px] text-slate-500">
+                    Confirm occupant departure and release bed back to available status
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-3 font-sans text-xs">
                 <p className="text-slate-600">
-                  Are you sure you want to vacate this bed? The participant will be unlinked and the bed will immediately return to AVAILABLE state.
+                  Are you sure you want to check out this participant? The bed will be vacated, the check-out timestamp recorded, and the bed immediately returned to AVAILABLE state.
                 </p>
 
                 <div className="p-3 bg-rose-50/60 border border-rose-200 rounded-xl space-y-1">
@@ -1478,7 +1679,7 @@ function AccommodationAdminContent() {
                     ) : (
                       <UserMinus className="w-3.5 h-3.5" />
                     )}
-                    <span>CONFIRM VACATE</span>
+                    <span>CONFIRM CHECK OUT &amp; VACATE</span>
                   </button>
                 </div>
               </div>
@@ -1559,7 +1760,7 @@ function AccommodationAdminContent() {
                           <span className="font-pixel text-[9px] text-emerald-700 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded">
                             ALLOCATED
                           </span>
-                        ) : (
+                        ) : canAllocate ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -1571,6 +1772,10 @@ function AccommodationAdminContent() {
                           >
                             ALLOCATE BED
                           </button>
+                        ) : (
+                          <span className="font-pixel text-[9px] text-slate-500 px-2 py-1 bg-slate-100 border border-slate-200 rounded font-medium">
+                            DESK ASSIGNMENT ONLY
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1742,17 +1947,23 @@ function AccommodationAdminContent() {
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsUnallocatedOpen(false);
-                            setSelectedHostelId(person.hostelEligible as any);
-                            showToast(`Selected ${person.name}. Please select an available bed.`, "info");
-                          }}
-                          className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#d94e16] text-white rounded-lg font-pixel text-[9px] font-bold cursor-pointer shadow-xs transition-colors"
-                        >
-                          ALLOCATE BED
-                        </button>
+                        {canAllocate ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsUnallocatedOpen(false);
+                              setSelectedHostelId(person.hostelEligible as any);
+                              showToast(`Selected ${person.name}. Please select an available bed.`, "info");
+                            }}
+                            className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#d94e16] text-white rounded-lg font-pixel text-[9px] font-bold cursor-pointer shadow-xs transition-colors shrink-0"
+                          >
+                            ALLOCATE BED
+                          </button>
+                        ) : (
+                          <span className="font-pixel text-[9px] text-slate-500 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded shrink-0 font-medium">
+                            DESK ASSIGNMENT ONLY
+                          </span>
+                        )}
                       </div>
                     ))
                 )}

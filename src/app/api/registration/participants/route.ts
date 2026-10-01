@@ -39,11 +39,11 @@ export const POST = withAuth(
       } = body;
 
       // 1. Mandatory Validations
-      if (!fullName || !mobile || !state || !institution) {
+      if (!fullName || !email || !mobile || !state || !institution) {
         return NextResponse.json(
           {
             success: false,
-            error: "Validation failed: Full Name, Mobile Number, State, and Institution are required.",
+            error: "Validation failed: Full Name, Email Address, Mobile Number, State, and Institution are required.",
           },
           { status: 400 }
         );
@@ -125,13 +125,13 @@ export const POST = withAuth(
           }
         }
 
-        // 4. CRITICAL: Generate Participant QR IMMEDIATELY through web portal
-        const qrResult = await generateParticipantQr(participant.id, context.user.email, { db: tx });
+        // Note: QR Pass is NOT generated yet — only generated after verification status shows successful
+        const qrResult = null;
 
         return {
           participant,
           targetTeam,
-          qr: qrResult,
+          qr: null,
         };
       });
 
@@ -147,14 +147,14 @@ export const POST = withAuth(
           name: result.participant.name,
           institution: cleanInst,
           teamId: result.targetTeam?.id || null,
-          qrToken: result.qr.token,
+          qrToken: null,
           operator: context.user.email,
         },
       });
 
       return NextResponse.json({
         success: true,
-        message: "Participant record created and accreditation QR generated immediately.",
+        message: "Participant record created. QR pass will be generated once documents are uploaded and verified.",
         participant: {
           id: result.participant.id,
           playerId: result.participant.playerId,
@@ -170,12 +170,7 @@ export const POST = withAuth(
           teamCode: result.targetTeam?.teamCode || "INDEPENDENT",
           teamName: result.targetTeam?.name || "Independent Contingent",
         },
-        qr: {
-          token: result.qr.token,
-          qrPassId: result.qr.qrPassId,
-          qrPayload: result.qr.qrPayload,
-          isGeneratedImmediately: true,
-        },
+        qr: null,
       });
     } catch (err: any) {
       console.error("[REGISTRATION_PARTICIPANTS_POST_ERROR]", err);
