@@ -28,6 +28,7 @@ import {
   DollarSign,
   User,
   Users,
+  Layers,
 } from "lucide-react";
 
 export interface MatchControlDrawerProps {
@@ -462,32 +463,36 @@ export function MatchControlDrawer({
           ) : (
             <>
               {/* SECTION 1: TEAMS & FIXTURE CONTEXT */}
-              <div className="bg-[#0B132B]/60 rounded-2xl border border-white/10 p-5 backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-rajdhani text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
+              <div className="bg-[#0B132B]/80 rounded-2xl border border-white/15 p-5 backdrop-blur-xl shadow-lg">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <span className="font-rajdhani text-xs font-bold text-slate-300 tracking-wider uppercase flex items-center gap-1.5">
                     <Trophy className="w-4 h-4 text-[#FF5A16]" />
                     CONTESTING UNIVERSITIES & LINEUPS
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="font-rajdhani text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-300 uppercase">
-                      Pool {match?.pool || "A"} &bull; {match?.roundName || "Round 1"}
+                    <span className="font-rajdhani text-xs font-bold px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/50 text-sky-200 uppercase tracking-wider shadow-sm flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <span>POOL {match?.pool || "A"}</span>
+                      <span className="text-sky-400/60">&bull;</span>
+                      <span className="text-sky-100 font-semibold">{match?.roundName || "Round 1"}</span>
                     </span>
                     <span
-                      className={`font-rajdhani text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                      className={`font-rajdhani text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm ${
                         match?.status === "LIVE"
-                          ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                          ? "bg-red-500/25 text-red-300 border border-red-500/50 animate-pulse"
                           : match?.status === "READY_TO_START"
-                          ? "bg-[#00FF88]/20 text-[#00FF88] border border-[#00FF88]/40"
+                          ? "bg-[#00FF88]/20 text-[#00FF88] border border-[#00FF88]/50"
                           : match?.status === "READY"
-                          ? "bg-[#00FF88]/15 text-[#00FF88] border border-[#00FF88]/30"
+                          ? "bg-[#00FF88]/15 text-[#00FF88] border border-[#00FF88]/40"
                           : match?.status === "RESULT_SUBMITTED"
-                          ? "bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/40"
+                          ? "bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/50"
                           : match?.status === "COMPLETED"
-                          ? "bg-white/10 text-slate-300"
-                          : "bg-white/5 text-slate-400"
+                          ? "bg-white/10 text-white border border-white/20"
+                          : "bg-white/10 text-slate-200 border border-white/15"
                       }`}
                     >
-                      ● {match?.status}
+                      <span className={`w-2 h-2 rounded-full ${match?.status === "LIVE" ? "bg-red-400 animate-ping" : "bg-current"}`} />
+                      <span>{match?.status}</span>
                     </span>
                   </div>
                 </div>
@@ -495,68 +500,98 @@ export function MatchControlDrawer({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* TEAM A */}
                   <div
-                    className={`p-4 rounded-xl border transition-all ${
+                    className={`p-4 sm:p-5 rounded-xl border-2 transition-all ${
                       match?.winner === "PLAYER_A"
-                        ? "border-[#00FF88]/50 bg-[#00FF88]/10"
-                        : "border-white/10 bg-white/[0.02]"
+                        ? "border-[#00FF88]/60 bg-[#00FF88]/10 shadow-lg shadow-[#00FF88]/5"
+                        : "border-blue-500/30 bg-[#0C1527] shadow-md"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                      <span className="font-rajdhani font-bold uppercase tracking-wider text-xs">TEAM A</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-rajdhani font-black text-xs px-2.5 py-0.5 rounded bg-blue-500/25 border border-blue-400/50 text-blue-200 uppercase tracking-wider inline-flex items-center gap-1 shadow-sm">
+                        <Users className="w-3.5 h-3.5 text-blue-400" /> TEAM A
+                      </span>
                       {match?.winner === "PLAYER_A" && (
-                        <span className="font-rajdhani font-bold text-[#00FF88] flex items-center gap-1 uppercase tracking-wider">
+                        <span className="font-rajdhani font-black text-xs text-[#00FF88] bg-[#00FF88]/20 border border-[#00FF88]/40 px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-wider">
                           <Check className="w-3.5 h-3.5" /> WINNER
                         </span>
                       )}
                     </div>
-                    <h3 className="text-base font-bold text-white leading-tight">
-                      {match?.playerA || "TBD"}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {match?.institutionA || "South Zone University"}
-                    </p>
-                    <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Reporting:</span>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Participant / Team</span>
+                      <h3 className="text-lg sm:text-xl font-black text-white leading-snug tracking-wide mt-0.5 drop-shadow-sm">
+                        {match?.playerA || "TBD"}
+                      </h3>
+                    </div>
+                    <div className="mt-3 p-2.5 rounded-lg bg-sky-950/40 border border-sky-400/30 flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-md bg-sky-500/20 border border-sky-400/40 flex items-center justify-center shrink-0">
+                        <Building className="w-4 h-4 text-sky-300" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-300/90 block leading-tight">University / Institution</span>
+                        <span className="text-sm font-extrabold text-white tracking-wide block truncate">
+                          {match?.institutionA || "South Zone University"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-medium">Reporting Status:</span>
                       <span
-                        className={`font-semibold ${
-                          preMatchReporting?.teamAReported ? "text-[#00FF88]" : "text-[#FFD700]"
+                        className={`font-rajdhani font-bold px-2.5 py-0.5 rounded text-xs tracking-wider uppercase border flex items-center gap-1.5 ${
+                          preMatchReporting?.teamAReported
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
+                            : "bg-amber-500/20 text-amber-300 border-amber-400/40"
                         }`}
                       >
-                        {preMatchReporting?.teamAReported ? "✓ Reported" : "× Pending"}
+                        {preMatchReporting?.teamAReported ? "✓ Reported" : "⏳ Pending"}
                       </span>
                     </div>
                   </div>
 
                   {/* TEAM B */}
                   <div
-                    className={`p-4 rounded-xl border transition-all ${
+                    className={`p-4 sm:p-5 rounded-xl border-2 transition-all ${
                       match?.winner === "PLAYER_B"
-                        ? "border-[#00FF88]/50 bg-[#00FF88]/10"
-                        : "border-white/10 bg-white/[0.02]"
+                        ? "border-[#00FF88]/60 bg-[#00FF88]/10 shadow-lg shadow-[#00FF88]/5"
+                        : "border-purple-500/30 bg-[#0C1527] shadow-md"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                      <span className="font-rajdhani font-bold uppercase tracking-wider text-xs">TEAM B</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-rajdhani font-black text-xs px-2.5 py-0.5 rounded bg-purple-500/25 border border-purple-400/50 text-purple-200 uppercase tracking-wider inline-flex items-center gap-1 shadow-sm">
+                        <Users className="w-3.5 h-3.5 text-purple-400" /> TEAM B
+                      </span>
                       {match?.winner === "PLAYER_B" && (
-                        <span className="font-rajdhani font-bold text-[#00FF88] flex items-center gap-1 uppercase tracking-wider">
+                        <span className="font-rajdhani font-black text-xs text-[#00FF88] bg-[#00FF88]/20 border border-[#00FF88]/40 px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-wider">
                           <Check className="w-3.5 h-3.5" /> WINNER
                         </span>
                       )}
                     </div>
-                    <h3 className="text-base font-bold text-white leading-tight">
-                      {match?.playerB || "TBD"}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {match?.institutionB || "South Zone University"}
-                    </p>
-                    <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Reporting:</span>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Participant / Team</span>
+                      <h3 className="text-lg sm:text-xl font-black text-white leading-snug tracking-wide mt-0.5 drop-shadow-sm">
+                        {match?.playerB || "TBD"}
+                      </h3>
+                    </div>
+                    <div className="mt-3 p-2.5 rounded-lg bg-purple-950/40 border border-purple-400/30 flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-md bg-purple-500/20 border border-purple-400/40 flex items-center justify-center shrink-0">
+                        <Building className="w-4 h-4 text-purple-300" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300/90 block leading-tight">University / Institution</span>
+                        <span className="text-sm font-extrabold text-white tracking-wide block truncate">
+                          {match?.institutionB || "South Zone University"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-medium">Reporting Status:</span>
                       <span
-                        className={`font-semibold ${
-                          preMatchReporting?.teamBReported ? "text-[#00FF88]" : "text-[#FFD700]"
+                        className={`font-rajdhani font-bold px-2.5 py-0.5 rounded text-xs tracking-wider uppercase border flex items-center gap-1.5 ${
+                          preMatchReporting?.teamBReported
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
+                            : "bg-amber-500/20 text-amber-300 border-amber-400/40"
                         }`}
                       >
-                        {preMatchReporting?.teamBReported ? "✓ Reported" : "× Pending"}
+                        {preMatchReporting?.teamBReported ? "✓ Reported" : "⏳ Pending"}
                       </span>
                     </div>
                   </div>
@@ -566,16 +601,16 @@ export function MatchControlDrawer({
                 <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                   <div className="flex items-center gap-4">
                     <span>
-                      Schedule: <strong className="text-white">{match?.time || "TBD"}</strong>
+                      Schedule: <strong className="text-white font-mono text-sm">{match?.time || "TBD"}</strong>
                     </span>
                     <span>
-                      Day: <strong className="text-white">{match?.day?.dayNumber || match?.dayId || "Day 1"}</strong>
+                      Day: <strong className="text-white font-rajdhani font-bold">{match?.day?.dayNumber || match?.dayId || "Day 1"}</strong>
                     </span>
                   </div>
                   {match?.downstreamMatchNumber && (
-                    <div className="flex items-center gap-1.5 text-cyan-400 font-rajdhani font-bold text-xs uppercase tracking-wider bg-cyan-950/30 border border-cyan-500/30 px-3 py-1 rounded-lg">
+                    <div className="flex items-center gap-1.5 text-cyan-300 font-rajdhani font-bold text-xs uppercase tracking-wider bg-cyan-950/40 border border-cyan-400/40 px-3 py-1 rounded-lg">
                       <span>Winner advances to:</span>
-                      <strong className="text-white">Match #{match.downstreamMatchNumber}</strong>
+                      <strong className="text-white font-mono">Match #{match.downstreamMatchNumber}</strong>
                     </div>
                   )}
                 </div>
@@ -584,40 +619,77 @@ export function MatchControlDrawer({
               {/* SECTION 2: COURT & OFFICIAL ASSIGNMENT */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* COURT ASSIGNMENT */}
-                <div className="bg-[#0B132B]/60 rounded-2xl border border-white/10 p-5 backdrop-blur-xl flex flex-col justify-between">
+                <div className="bg-[#0B132B]/80 rounded-2xl border border-white/15 p-5 backdrop-blur-xl flex flex-col justify-between shadow-lg">
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="font-rajdhani text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
+                      <span className="font-rajdhani text-xs font-bold text-slate-300 tracking-wider uppercase flex items-center gap-1.5">
                         <MapPin className="w-4 h-4 text-[#FF5A16]" />
                         PHYSICAL COURT
                       </span>
-                      {court && (
+                      {court ? (
                         <span
-                          className={`font-rajdhani text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                          className={`font-rajdhani text-xs font-black px-3 py-1 rounded-md uppercase tracking-wider flex items-center gap-1.5 shadow-sm border ${
                             court.status === "LIVE"
-                              ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                              : court.status === "AVAILABLE"
-                              ? "bg-[#00FF88]/20 text-[#00FF88] border border-[#00FF88]/30"
-                              : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                              ? "bg-red-500/30 text-red-200 border-red-400/60 animate-pulse"
+                              : court.status === "READY" || court.status === "AVAILABLE"
+                              ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/60"
+                              : court.status === "DELAYED"
+                              ? "bg-amber-500/30 text-amber-200 border-amber-400/60"
+                              : "bg-cyan-500/30 text-cyan-200 border-cyan-400/60"
                           }`}
                         >
-                          {court.status}
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              court.status === "LIVE"
+                                ? "bg-red-400"
+                                : court.status === "READY" || court.status === "AVAILABLE"
+                                ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                                : court.status === "DELAYED"
+                                ? "bg-amber-400"
+                                : "bg-cyan-400"
+                            }`}
+                          />
+                          <span>COURT {court.status === "READY" ? "READY" : court.status}</span>
+                        </span>
+                      ) : (
+                        <span className="font-rajdhani text-xs font-bold px-2.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-white/10 uppercase">
+                          UNASSIGNED
                         </span>
                       )}
                     </div>
 
-                    <p className="text-sm font-semibold text-slate-300 mb-3">
-                      Assigned: <strong className="text-[#FF5A16] font-rajdhani text-lg font-black">{match?.court || "Unassigned"}</strong>
-                    </p>
+                    <div className="mb-4 bg-[#050914] border border-white/15 p-3 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Assigned Court</span>
+                        <strong className="text-[#FF5A16] font-rajdhani text-2xl font-black tracking-wide block">
+                          {match?.court || "Unassigned"}
+                        </strong>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Court Readiness Status</span>
+                        <span
+                          className={`font-rajdhani text-xs font-extrabold px-2.5 py-1 rounded uppercase tracking-wider inline-flex items-center gap-1.5 border ${
+                            court?.status === "READY" || court?.status === "AVAILABLE"
+                              ? "bg-emerald-500/25 text-emerald-300 border-emerald-400/50"
+                              : court?.status === "LIVE"
+                              ? "bg-red-500/25 text-red-300 border-red-400/50"
+                              : "bg-amber-500/25 text-amber-300 border-amber-400/50"
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{court?.status ? `COURT ${court.status}` : "NOT READY"}</span>
+                        </span>
+                      </div>
+                    </div>
 
-                    <label className="block font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    <label className="block font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                       Assign / Reassign Court
                     </label>
                     <select
                       value={selectedCourt}
                       onChange={(e) => setSelectedCourt(e.target.value)}
                       disabled={match?.status === "LIVE" || actionPending}
-                      className="w-full text-xs border border-white/15 rounded-lg p-2.5 bg-[#040711] text-white focus:outline-none focus:border-[#FF5A16]"
+                      className="w-full text-xs border border-white/20 rounded-lg p-2.5 bg-[#040711] text-white font-medium focus:outline-none focus:border-[#FF5A16]"
                     >
                       <option value="">Select a tournament court...</option>
                       {availableCourts.map((c) => (
@@ -629,8 +701,10 @@ export function MatchControlDrawer({
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">
-                      {availableCourts.filter((c) => c.status === "AVAILABLE" || c.status === "READY").length} courts ready
+                    <span className="text-xs font-medium text-slate-300">
+                      <strong className="text-emerald-400 font-bold font-mono">
+                        {availableCourts.filter((c) => c.status === "AVAILABLE" || c.status === "READY").length}
+                      </strong> courts ready & available
                     </span>
                     <button
                       onClick={handleAssignCourt}
@@ -643,35 +717,50 @@ export function MatchControlDrawer({
                 </div>
 
                 {/* OFFICIAL / UMPIRE ASSIGNMENT */}
-                <div className="bg-[#0B132B]/60 rounded-2xl border border-white/10 p-5 backdrop-blur-xl flex flex-col justify-between">
+                {/* OFFICIAL / UMPIRE ASSIGNMENT */}
+                <div className="bg-[#0B132B]/80 rounded-2xl border border-white/15 p-5 backdrop-blur-xl flex flex-col justify-between shadow-lg">
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="font-rajdhani text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
+                      <span className="font-rajdhani text-xs font-bold text-slate-300 tracking-wider uppercase flex items-center gap-1.5">
                         <UserCheck className="w-4 h-4 text-[#FF5A16]" />
                         TECHNICAL OFFICIAL & UMPIRE
                       </span>
-                      {assignedOfficial && (
-                        <span className="font-rajdhani text-[10px] bg-[#00FF88]/20 text-[#00FF88] border border-[#00FF88]/30 font-bold px-2 py-0.5 rounded uppercase">
+                      {assignedOfficial ? (
+                        <span className="font-rajdhani text-xs bg-[#00FF88]/20 text-[#00FF88] border border-[#00FF88]/40 font-bold px-2.5 py-0.5 rounded uppercase">
                           ASSIGNED
+                        </span>
+                      ) : (
+                        <span className="font-rajdhani text-xs bg-slate-800 text-slate-400 border border-white/10 font-bold px-2.5 py-0.5 rounded uppercase">
+                          UNASSIGNED
                         </span>
                       )}
                     </div>
 
-                    <p className="text-sm font-semibold text-slate-300 mb-3">
-                      Primary Umpire:{" "}
-                      <strong className="text-[#FF5A16] font-rajdhani text-base font-black">
-                        {assignedOfficial?.name || match?.assignedOfficialId || "Unassigned"}
-                      </strong>
-                    </p>
+                    <div className="mb-4 bg-[#050914] border border-white/15 p-3 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Primary Match Umpire</span>
+                        <strong className="text-white font-rajdhani text-lg font-black tracking-wide block">
+                          {assignedOfficial?.name || match?.assignedOfficialId || "Unassigned"}
+                        </strong>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Official Status</span>
+                        <span className={`font-rajdhani text-xs font-bold px-2 py-0.5 rounded uppercase ${
+                          assignedOfficial ? "text-cyan-300 bg-cyan-500/20 border border-cyan-400/40" : "text-amber-300 bg-amber-500/20 border border-amber-400/40"
+                        }`}>
+                          {assignedOfficial ? "Ready & Linked" : "Needs Assignment"}
+                        </span>
+                      </div>
+                    </div>
 
-                    <label className="block font-rajdhani text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    <label className="block font-rajdhani text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                       Assign / Reassign Match Official
                     </label>
                     <select
                       value={selectedOfficial}
                       onChange={(e) => setSelectedOfficial(e.target.value)}
                       disabled={actionPending}
-                      className="w-full text-xs border border-white/15 rounded-lg p-2.5 bg-[#040711] text-white focus:outline-none focus:border-[#FF5A16] mb-2"
+                      className="w-full text-xs border border-white/20 rounded-lg p-2.5 bg-[#040711] text-white font-medium focus:outline-none focus:border-[#FF5A16] mb-2"
                     >
                       <option value="">Select available official...</option>
                       {availableOfficials.map((off) => (
@@ -686,13 +775,15 @@ export function MatchControlDrawer({
                       placeholder="Court officials (e.g. Service & Line Judges)"
                       value={courtOfficialsNote}
                       onChange={(e) => setCourtOfficialsNote(e.target.value)}
-                      className="w-full text-xs border border-white/15 rounded-lg p-2 bg-[#040711] text-white placeholder-slate-500 focus:outline-none focus:border-[#FF5A16]"
+                      className="w-full text-xs border border-white/20 rounded-lg p-2.5 bg-[#040711] text-white placeholder-slate-400 focus:outline-none focus:border-[#FF5A16]"
                     />
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">
-                      {availableOfficials.filter((o) => o.isAvailable).length} officials available
+                    <span className="text-xs font-medium text-slate-300">
+                      <strong className="text-cyan-400 font-bold font-mono">
+                        {availableOfficials.filter((o) => o.isAvailable).length}
+                      </strong> officials available
                     </span>
                     <button
                       onClick={handleAssignOfficial}
@@ -706,9 +797,9 @@ export function MatchControlDrawer({
               </div>
 
               {/* SECTION 3: PRE-MATCH REPORTING & SHUTTLE FEE */}
-              <div className="bg-[#0B132B]/60 rounded-2xl border border-white/10 p-5 backdrop-blur-xl">
+              <div className="bg-[#0B132B]/80 rounded-2xl border border-white/15 p-5 backdrop-blur-xl shadow-lg">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="font-rajdhani text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
+                  <span className="font-rajdhani text-xs font-bold text-slate-300 tracking-wider uppercase flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-[#FF5A16]" />
                     PRE-MATCH REPORTING & ARRANGEMENTS
                   </span>
@@ -717,7 +808,9 @@ export function MatchControlDrawer({
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                   {/* Team A Reported */}
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-white/20 bg-[#060B18] hover:bg-[#0E1528] cursor-pointer transition-colors shadow-sm">
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer shadow-sm ${
+                    teamAReported ? "border-emerald-400/60 bg-emerald-950/40 text-emerald-100 shadow-emerald-950/50" : "border-white/20 bg-[#060B18] text-white hover:bg-[#0E1528]"
+                  }`}>
                     <input
                       type="checkbox"
                       checked={teamAReported}
@@ -725,18 +818,20 @@ export function MatchControlDrawer({
                       className="w-4 h-4 accent-[#FF5A16] rounded"
                     />
                     <div className="overflow-hidden">
-                      <div className="font-rajdhani font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-[#00FF88] shrink-0" />
+                      <div className="font-rajdhani font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Users className={`w-3.5 h-3.5 shrink-0 ${teamAReported ? "text-emerald-400" : "text-blue-400"}`} />
                         <span>Team A Reported</span>
                       </div>
-                      <div className="text-[10px] text-slate-300 truncate mt-0.5">
+                      <div className="text-[11px] font-semibold text-slate-200 truncate mt-0.5">
                         {match?.playerA || "Team A"}
                       </div>
                     </div>
                   </label>
 
                   {/* Team B Reported */}
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-white/20 bg-[#060B18] hover:bg-[#0E1528] cursor-pointer transition-colors shadow-sm">
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer shadow-sm ${
+                    teamBReported ? "border-emerald-400/60 bg-emerald-950/40 text-emerald-100 shadow-emerald-950/50" : "border-white/20 bg-[#060B18] text-white hover:bg-[#0E1528]"
+                  }`}>
                     <input
                       type="checkbox"
                       checked={teamBReported}
@@ -744,18 +839,20 @@ export function MatchControlDrawer({
                       className="w-4 h-4 accent-[#FF5A16] rounded"
                     />
                     <div className="overflow-hidden">
-                      <div className="font-rajdhani font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <div className="font-rajdhani font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Users className={`w-3.5 h-3.5 shrink-0 ${teamBReported ? "text-emerald-400" : "text-purple-400"}`} />
                         <span>Team B Reported</span>
                       </div>
-                      <div className="text-[10px] text-slate-300 truncate mt-0.5">
+                      <div className="text-[11px] font-semibold text-slate-200 truncate mt-0.5">
                         {match?.playerB || "Team B"}
                       </div>
                     </div>
                   </label>
 
                   {/* Officials Present */}
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-white/20 bg-[#060B18] hover:bg-[#0E1528] cursor-pointer transition-colors shadow-sm">
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer shadow-sm ${
+                    officialsPresent ? "border-amber-400/60 bg-amber-950/40 text-amber-100 shadow-amber-950/50" : "border-white/20 bg-[#060B18] text-white hover:bg-[#0E1528]"
+                  }`}>
                     <input
                       type="checkbox"
                       checked={officialsPresent}
@@ -763,16 +860,18 @@ export function MatchControlDrawer({
                       className="w-4 h-4 accent-[#FF5A16] rounded"
                     />
                     <div>
-                      <div className="font-rajdhani font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <div className="font-rajdhani font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
                         <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         <span>Officials Present</span>
                       </div>
-                      <div className="text-[10px] text-slate-300 mt-0.5">Court-Side Check</div>
+                      <div className="text-[11px] font-semibold text-slate-200 mt-0.5">Court-Side Check</div>
                     </div>
                   </label>
 
                   {/* Court Ready */}
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-white/20 bg-[#060B18] hover:bg-[#0E1528] cursor-pointer transition-colors shadow-sm">
+                  <label className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer shadow-sm ${
+                    courtReady ? "border-emerald-400/60 bg-emerald-950/40 text-emerald-100 shadow-emerald-950/50" : "border-white/20 bg-[#060B18] text-white hover:bg-[#0E1528]"
+                  }`}>
                     <input
                       type="checkbox"
                       checked={courtReady}
@@ -780,11 +879,11 @@ export function MatchControlDrawer({
                       className="w-4 h-4 accent-[#FF5A16] rounded"
                     />
                     <div>
-                      <div className="font-rajdhani font-bold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#FF5A16] shrink-0" />
+                      <div className="font-rajdhani font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${courtReady ? "text-emerald-400" : "text-[#FF5A16]"}`} />
                         <span>Court Ready</span>
                       </div>
-                      <div className="text-[10px] text-slate-300 mt-0.5">Net & Posts Inspected</div>
+                      <div className="text-[11px] font-semibold text-slate-200 mt-0.5">Net & Posts Inspected</div>
                     </div>
                   </label>
                 </div>
@@ -846,13 +945,13 @@ export function MatchControlDrawer({
 
               {/* SECTION 4: COURT READINESS CHECKS */}
               {match?.court && match.court !== "TBD" && (
-                <div className="bg-[#0B132B]/60 rounded-2xl border border-white/10 p-5 backdrop-blur-xl">
+                <div className="bg-[#0B132B]/80 rounded-2xl border border-white/15 p-5 backdrop-blur-xl shadow-lg">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="font-rajdhani text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5">
+                    <span className="font-rajdhani text-xs font-bold text-slate-300 tracking-wider uppercase flex items-center gap-1.5">
                       <Shield className="w-4 h-4 text-[#FF5A16]" />
                       COURT READINESS TELEMETRY ({match.court})
                     </span>
-                    <span className="font-mono text-xs text-slate-400">
+                    <span className="font-mono text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-400/20">
                       {courtChecks.length} checks recorded
                     </span>
                   </div>
@@ -866,29 +965,29 @@ export function MatchControlDrawer({
                       return (
                         <div
                           key={item.id}
-                          className={`p-3 rounded-xl border text-xs flex flex-col justify-between shadow-sm ${
+                          className={`p-3 rounded-xl border text-xs flex flex-col justify-between shadow-sm transition-all ${
                             isIssue
-                              ? "border-red-500/50 bg-red-950/30 text-red-200"
+                              ? "border-red-400/60 bg-red-950/40 text-red-100"
                               : isReady
-                              ? "border-[#00FF88]/40 bg-[#00FF88]/10 text-[#00FF88]"
+                              ? "border-emerald-400/50 bg-emerald-950/30 text-emerald-100"
                               : "border-white/20 bg-[#060B18] text-slate-200"
                           }`}
                         >
-                          <div className="font-semibold text-white flex items-center gap-1.5">
-                            <Shield className={`w-3.5 h-3.5 ${isReady ? "text-[#00FF88]" : isIssue ? "text-red-400" : "text-[#FF5A16]"}`} />
+                          <div className="font-bold text-white flex items-center gap-1.5">
+                            <Shield className={`w-3.5 h-3.5 ${isReady ? "text-emerald-400" : isIssue ? "text-red-400" : "text-[#FF5A16]"}`} />
                             <span>{item.label}</span>
                           </div>
-                          <div className="mt-2 flex items-center justify-between">
+                          <div className="mt-2.5 flex items-center justify-between gap-1">
                             <span
-                              className={`font-rajdhani text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                              className={`font-rajdhani text-xs font-black px-2.5 py-0.5 rounded uppercase tracking-wider ${
                                 isIssue
-                                  ? "bg-red-500/30 text-red-200 border border-red-500/40"
+                                  ? "bg-red-500/30 text-red-200 border border-red-500/50"
                                   : isReady
-                                  ? "bg-[#00FF88]/20 text-[#00FF88] border border-[#00FF88]/30"
+                                  ? "bg-emerald-500/25 text-emerald-200 border border-emerald-400/50"
                                   : "bg-white/10 text-slate-200 border border-white/20"
                               }`}
                             >
-                              {latest?.status || "PENDING"}
+                              {latest?.status === "READY" ? "✓ READY" : latest?.status === "ISSUE" ? "⚠ ISSUE" : (latest?.status || "PENDING")}
                             </span>
                             {latest?.notes && (
                               <span className="text-[10px] text-slate-300 truncate max-w-[80px]" title={latest.notes}>

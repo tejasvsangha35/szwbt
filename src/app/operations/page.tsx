@@ -712,34 +712,34 @@ export default function TechnicalOperationsDashboard() {
                     >
                       {/* Top Bar: Court Name + Status Badge */}
                       <div className="flex items-center justify-between gap-3 mb-4 min-w-0 shrink-0">
-                        <h3 className="font-rajdhani text-lg font-black text-white tracking-wider uppercase leading-none">
+                        <h3 className="font-rajdhani text-xl font-black text-white tracking-wider uppercase leading-none">
                           {court.courtNumber}
                         </h3>
                         <span
-                          className={`font-rajdhani text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 shrink-0 shadow-sm ${
+                          className={`font-rajdhani text-xs font-black px-3 py-1 rounded-md uppercase tracking-wider flex items-center gap-1.5 shrink-0 shadow-sm border ${
                             isLive
-                              ? "bg-red-500/20 text-red-400 border border-red-500/50"
+                              ? "bg-red-500/25 text-red-200 border-red-400/60"
                               : isPaused
-                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                              ? "bg-amber-500/25 text-amber-200 border-amber-400/60"
                               : isAssigned
-                              ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50"
+                              ? "bg-cyan-500/25 text-cyan-200 border-cyan-400/60"
                               : isPostMatch
-                              ? "bg-blue-500/20 text-blue-400 border border-blue-500/50"
+                              ? "bg-blue-500/25 text-blue-200 border-blue-400/60"
                               : isAvailable
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/50"
-                              : "bg-white/10 text-slate-400"
+                              ? "bg-emerald-500/25 text-emerald-200 border-emerald-400/60"
+                              : "bg-white/10 text-slate-200 border-white/20"
                           }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            className={`w-2 h-2 rounded-full shrink-0 ${
                               isLive
                                 ? "bg-red-400 animate-ping"
                                 : isAvailable
-                                ? "bg-emerald-400"
+                                ? "bg-emerald-400 shadow-[0_0_6px_#34d399]"
                                 : "bg-slate-400"
                             }`}
                           />
-                          {court.status}
+                          <span>{court.status === "READY" ? "COURT READY" : court.status}</span>
                         </span>
                       </div>
 
@@ -1029,29 +1029,46 @@ export default function TechnicalOperationsDashboard() {
 
                           {/* Pool / Round */}
                           <td className="py-3.5 px-3 whitespace-nowrap">
-                            <span className="font-rajdhani font-bold text-white uppercase flex items-center gap-1">
-                              <Layers className="w-3 h-3 text-cyan-400 shrink-0" />
+                            <span className="font-rajdhani font-black text-xs px-2.5 py-0.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-200 uppercase inline-flex items-center gap-1 shadow-sm">
+                              <Layers className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                               <span>Pool {m.pool || "A"}</span>
                             </span>
-                            <span className="text-[10px] text-slate-400 block truncate max-w-[110px] mt-0.5">
+                            <span className="text-[11px] text-slate-300 font-semibold block truncate max-w-[120px] mt-1">
                               {m.roundName || m.roundStage || "Round 1"}
                             </span>
                           </td>
 
-                          {/* Teams */}
-                          <td className="py-3.5 px-4">
-                            <div className="font-semibold text-white leading-tight truncate max-w-[220px]">
+                          {/* Teams & Universities */}
+                          <td className="py-3.5 px-4 min-w-[220px]">
+                            <div className="font-extrabold text-white text-sm leading-tight truncate">
                               {m.playerA}
                             </div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">
-                              vs <span className="font-semibold text-white truncate">{m.playerB}</span>
+                            {m.institutionA && (
+                              <div className="text-[11px] font-semibold text-cyan-200 truncate flex items-center gap-1 mt-0.5">
+                                <Building className="w-3 h-3 text-cyan-400 shrink-0" />
+                                <span>{m.institutionA}</span>
+                              </div>
+                            )}
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest my-1 flex items-center gap-2">
+                              <span className="h-[1px] w-4 bg-white/10" />
+                              <span>VS</span>
+                              <span className="h-[1px] w-4 bg-white/10" />
                             </div>
+                            <div className="font-extrabold text-white text-sm leading-tight truncate">
+                              {m.playerB}
+                            </div>
+                            {m.institutionB && (
+                              <div className="text-[11px] font-semibold text-purple-200 truncate flex items-center gap-1 mt-0.5">
+                                <Building className="w-3 h-3 text-purple-400 shrink-0" />
+                                <span>{m.institutionB}</span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Scheduled Time */}
                           <td className="py-3.5 px-3 font-mono text-slate-200 whitespace-nowrap">
-                            <span className="flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                            <span className="flex items-center gap-1.5 font-bold">
+                              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                               <span>{m.time}</span>
                             </span>
                           </td>
@@ -1059,8 +1076,8 @@ export default function TechnicalOperationsDashboard() {
                           {/* Court */}
                           <td className="py-3.5 px-3 whitespace-nowrap">
                             {m.court && m.court !== "TBD" && m.court !== "Unassigned" ? (
-                              <span className="font-rajdhani font-bold text-white bg-white/10 border border-white/15 px-2 py-0.5 rounded text-xs inline-flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-[#FF5A16] shrink-0" />
+                              <span className="font-rajdhani font-black text-white bg-[#0A1020] border border-white/20 px-2.5 py-1 rounded text-xs inline-flex items-center gap-1.5 shadow-sm">
+                                <MapPin className="w-3.5 h-3.5 text-[#FF5A16] shrink-0" />
                                 <span>{m.court}</span>
                               </span>
                             ) : (
@@ -1071,8 +1088,8 @@ export default function TechnicalOperationsDashboard() {
                           {/* Umpire */}
                           <td className="py-3.5 px-3 whitespace-nowrap text-slate-200">
                             {m.assignedOfficialId ? (
-                              <span className="truncate max-w-[110px] inline-flex items-center gap-1 text-xs" title={m.assignedOfficialId}>
-                                <UserCheck className="w-3 h-3 text-cyan-400 shrink-0" />
+                              <span className="truncate max-w-[120px] inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-200" title={m.assignedOfficialId}>
+                                <UserCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                                 <span>Assigned</span>
                               </span>
                             ) : (
@@ -1083,20 +1100,20 @@ export default function TechnicalOperationsDashboard() {
                           {/* Technical Readiness */}
                           <td className="py-3.5 px-3 whitespace-nowrap">
                             <span
-                              className={`font-rajdhani text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1 ${
+                              className={`font-rajdhani text-xs font-black px-2.5 py-1 rounded uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm border ${
                                 isReady
-                                  ? "bg-[#00FF88]/15 text-[#00FF88] border border-[#00FF88]/30"
-                                  : "bg-white/5 text-slate-400 border border-white/10"
+                                  ? "bg-emerald-500/25 text-emerald-200 border-emerald-400/50"
+                                  : "bg-amber-500/25 text-amber-200 border-amber-400/50"
                               }`}
                             >
                               {isReady ? (
                                 <>
-                                  <CheckCircle2 className="w-3 h-3 text-[#00FF88]" />
-                                  <span>READY ✓</span>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>COURT READY ✓</span>
                                 </>
                               ) : (
                                 <>
-                                  <AlertCircle className="w-3 h-3 text-amber-400" />
+                                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
                                   <span>{m.readiness?.blockingReasons?.length || 0} UNMET</span>
                                 </>
                               )}

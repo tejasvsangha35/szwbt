@@ -13,6 +13,7 @@ import { AccommodationTable } from "@/components/accommodation/AccommodationTabl
 import { AllocationDrawer } from "@/components/accommodation/AllocationDrawer";
 import { PersonSearchItem } from "@/components/accommodation/PersonSearch";
 import { FoodPackageSection } from "@/components/accommodation/FoodPackageSection";
+import { CheckInConfirmModal, CheckInConfirmState } from "@/components/accommodation/CheckInConfirmModal";
 import {
   Home, Key, QrCode, Search, Users, UserCheck, AlertTriangle,
   CreditCard, History, RefreshCw, X, CheckCircle2, MoveRight,
@@ -172,6 +173,10 @@ function AccommodationAdminContent() {
     room: RoomData;
   } | null>(null);
   const [isVacateSubmitting, setIsVacateSubmitting] = useState(false);
+
+  // Check-in confirmation modal
+  const [checkInConfirmState, setCheckInConfirmState] = useState<CheckInConfirmState | null>(null);
+  const [isCheckInSubmitting, setIsCheckInSubmitting] = useState(false);
 
   // ─────────────────────────────────────────────────────────────
   // 5. QR CODE SCANNER & TEAM DOSSIER STATE
@@ -470,117 +475,174 @@ function AccommodationAdminContent() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // CHECK-IN / CHANGE CHECK-IN STATUS
+  // CHECK-IN / CHANGE CHECK-IN STATUS (PROMPTS CONFIRMATION POPUP)
   // ─────────────────────────────────────────────────────────────
-  const handleCheckIn = async (bed: BedData, room: RoomData, newStatus: boolean) => {
-    const allocId = bed.occupant?.allocationId;
-    if (!allocId && !bed.id) return;
-
-    try {
-      const res = await fetch("/api/accommodation/allocations/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          allocationId: allocId,
-          bedId: bed.id,
-          isCheckedIn: newStatus,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(
-          newStatus
-            ? `CHECK-IN CONFIRMED: ${bed.occupant?.name} in Room ${room.roomNumber} (${bed.bedNumber})`
-            : `CHECK-IN REVERTED: ${bed.occupant?.name} set back to Pending Check-In`,
-          "success"
-        );
-        fetchRooms();
-        fetchOverviewKpis();
-      } else {
-        showToast(data.error || "Failed to update check-in status", "error");
-      }
-    } catch (err: any) {
-      showToast("Network error updating check-in", "error");
-    }
+  const handleCheckIn = (bed: BedData, room: RoomData, newStatus: boolean) => {
+    setCheckInConfirmState({
+      type: "single",
+      bed,
+      room,
+      newStatus,
+    });
   };
 
   // ─────────────────────────────────────────────────────────────
   // BULK CHECK-IN (WHOLE TEAM, ROOM, OR SELECTED BATCH)
   // ─────────────────────────────────────────────────────────────
-  const handleBulkCheckIn = async (allocationIds: string[], contextName?: string) => {
+  const handleBulkCheckIn = (
+    allocationIds: string[],
+    contextName?: string,
+    occupantNames?: string[]
+  ) => {
     if (!allocationIds || allocationIds.length === 0) return;
-    try {
-      const res = await fetch("/api/accommodation/allocations/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          allocationIds,
-          isCheckedIn: true,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(
-          `TEAM CHECK-IN COMPLETE: ${data.count} occupants checked in for ${contextName || "team"}!`,
-          "success"
-        );
-        fetchRooms();
-        fetchOverviewKpis();
-        if (resolvedTeam) {
-          resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
-        }
-      } else {
-        showToast(data.error || "Failed to bulk check in occupants", "error");
-      }
-    } catch (err: any) {
-      showToast("Network error during bulk check-in", "error");
-    }
+    setCheckInConfirmState({
+      type: "bulk",
+      allocationIds,
+      contextName: contextName || "Selected Contingent",
+      count: allocationIds.length,
+      occupantNames,
+    });
   };
 
-  const handleCheckInByTeam = async (teamId: string, teamName?: string) => {
-    try {
-      const res = await fetch("/api/accommodation/allocations/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teamId,
-          isCheckedIn: true,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(
-          `ENTIRE TEAM CHECKED IN: All ${data.count} members of ${teamName || "team"} are now checked in!`,
-          "success"
-        );
-        fetchRooms();
-        fetchOverviewKpis();
-        if (resolvedTeam) {
-          resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
-        }
-      } else {
-        showToast(data.error || "Failed to check in team", "error");
-      }
-    } catch (err: any) {
-      showToast("Network error during team check-in", "error");
-    }
+  const handleCheckInByTeam = (teamId: string, teamName?: string, count?: number) => {
+    const allocatedMembers = resolvedTeam
+      ? resolvedTeam.members.filter((m) => m.isAllocated)
+      : [];
+    setCheckInConfirmState({
+      type: "team",
+      teamId,
+      contextName: teamName || "Team",
+      count: count || allocatedMembers.length || 0,
+      occupantNames: allocatedMembers.map((m) => m.name),
+    });
   };
 
-  const handleCheckInWholeRoom = async (room: RoomData) => {
-    const pendingIds = room.beds
-      .filter((b) => b.status === "OCCUPIED" && b.occupant && !b.occupant.isCheckedIn)
-      .map((b) => b.occupant?.allocationId)
-      .filter(Boolean) as string[];
+  const handleCheckInWholeRoom = (room: RoomData) => {
+    const pendingBeds = room.beds.filter(
+      (b) => b.status === "OCCUPIED" && b.occupant && !b.occupant.isCheckedIn
+    );
 
-    if (pendingIds.length === 0) {
+    if (pendingBeds.length === 0) {
       showToast(`All occupants in Room ${room.roomNumber} are already checked in.`, "info");
       return;
     }
 
-    await handleBulkCheckIn(pendingIds, `Room ${room.roomNumber}`);
+    const pendingIds = pendingBeds
+      .map((b) => b.occupant?.allocationId)
+      .filter(Boolean) as string[];
+
+    setCheckInConfirmState({
+      type: "bulk",
+      allocationIds: pendingIds,
+      contextName: `Room ${room.roomNumber}`,
+      count: pendingIds.length,
+      occupantNames: pendingBeds.map((b) => b.occupant?.name || "Occupant"),
+      room,
+    });
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // EXECUTE CONFIRMED CHECK-IN (CALLED BY CONFIRMATION MODAL)
+  // ─────────────────────────────────────────────────────────────
+  const handleConfirmExecuteCheckIn = async () => {
+    if (!checkInConfirmState) return;
+
+    setIsCheckInSubmitting(true);
+    try {
+      if (checkInConfirmState.type === "single") {
+        const { bed, room, newStatus } = checkInConfirmState;
+        if (!bed) return;
+        const allocId = bed.occupant?.allocationId;
+
+        const res = await fetch("/api/accommodation/allocations/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allocationId: allocId,
+            bedId: bed.id,
+            isCheckedIn: newStatus ?? true,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(
+            newStatus
+              ? `CHECK-IN CONFIRMED: ${bed.occupant?.name} in Room ${room?.roomNumber} (${bed.bedNumber})`
+              : `CHECK-IN REVERTED: ${bed.occupant?.name} set back to Pending Check-In`,
+            "success"
+          );
+          setCheckInConfirmState(null);
+          fetchRooms();
+          fetchOverviewKpis();
+          if (resolvedTeam) {
+            resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
+          }
+        } else {
+          showToast(data.error || "Failed to update check-in status", "error");
+        }
+      } else if (checkInConfirmState.type === "bulk") {
+        const { allocationIds, contextName } = checkInConfirmState;
+        if (!allocationIds || allocationIds.length === 0) return;
+
+        const res = await fetch("/api/accommodation/allocations/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allocationIds,
+            isCheckedIn: true,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(
+            `TEAM CHECK-IN COMPLETE: ${data.count} occupants checked in for ${contextName || "group"}!`,
+            "success"
+          );
+          setCheckInConfirmState(null);
+          fetchRooms();
+          fetchOverviewKpis();
+          if (resolvedTeam) {
+            resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
+          }
+        } else {
+          showToast(data.error || "Failed to bulk check in occupants", "error");
+        }
+      } else if (checkInConfirmState.type === "team") {
+        const { teamId, contextName } = checkInConfirmState;
+        if (!teamId) return;
+
+        const res = await fetch("/api/accommodation/allocations/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            teamId,
+            isCheckedIn: true,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(
+            `ENTIRE TEAM CHECKED IN: All ${data.count} members of ${contextName || "team"} are now checked in!`,
+            "success"
+          );
+          setCheckInConfirmState(null);
+          fetchRooms();
+          fetchOverviewKpis();
+          if (resolvedTeam) {
+            resolveTeamQr(resolvedTeam.teamCode || qrTokenInput);
+          }
+        } else {
+          showToast(data.error || "Failed to check in team", "error");
+        }
+      }
+    } catch (err: any) {
+      showToast("Network error updating check-in", "error");
+    } finally {
+      setIsCheckInSubmitting(false);
+    }
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -1054,12 +1116,15 @@ function AccommodationAdminContent() {
                   <button
                     type="button"
                     onClick={() => {
-                      const allocatedIds = resolvedTeam.members
-                        .filter((m) => m.isAllocated && m.allocation)
+                      const allocatedMembers = resolvedTeam.members.filter(
+                        (m) => m.isAllocated && m.allocation
+                      );
+                      const allocatedIds = allocatedMembers
                         .map((m) => (m.allocation as any).allocationId)
                         .filter(Boolean);
+                      const memberNames = allocatedMembers.map((m) => m.name);
                       if (allocatedIds.length > 0) {
-                        handleBulkCheckIn(allocatedIds, resolvedTeam.teamName);
+                        handleBulkCheckIn(allocatedIds, resolvedTeam.teamName, memberNames);
                       } else {
                         handleCheckInByTeam(resolvedTeam.id, resolvedTeam.teamName);
                       }
@@ -1688,8 +1753,16 @@ function AccommodationAdminContent() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* DRAWER 1: FIND PERSON */}
+        {/* MODAL 5: CHECK-IN CONFIRMATION MODAL */}
         {/* ═══════════════════════════════════════════════════════════════ */}
+        <CheckInConfirmModal
+          state={checkInConfirmState}
+          hostelName={hostelName}
+          isOpen={Boolean(checkInConfirmState)}
+          isSubmitting={isCheckInSubmitting}
+          onClose={() => setCheckInConfirmState(null)}
+          onConfirm={handleConfirmExecuteCheckIn}
+        />
         {isFindPersonOpen && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 select-none">
             <div className="max-w-2xl w-full bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-2xl relative max-h-[85vh] flex flex-col text-slate-900">

@@ -28,7 +28,7 @@ interface AccommodationTableProps {
   hostelName: string;
   canAllocate?: boolean;
   onCheckInBed: (bed: BedData, room: RoomData, newStatus: boolean) => Promise<void> | void;
-  onBulkCheckIn: (allocationIds: string[], contextName?: string) => Promise<void> | void;
+  onBulkCheckIn: (allocationIds: string[], contextName?: string, occupantNames?: string[]) => Promise<void> | void;
   onEditBed: (bed: BedData, room: RoomData) => void;
   onVacateBed: (bed: BedData, room: RoomData) => void;
   onAllocateBed?: (bed: BedData, room: RoomData) => void;
@@ -222,7 +222,10 @@ export const AccommodationTable: React.FC<AccommodationTableProps> = ({
     if (uni.pendingAllocationIds.length === 0) return;
     setIsProcessingBulk(true);
     try {
-      await onBulkCheckIn(uni.pendingAllocationIds, uni.institutionName);
+      const pendingNames = uni.athletes
+        .filter((a) => !a.isCheckedIn)
+        .map((a) => a.occupant.name);
+      await onBulkCheckIn(uni.pendingAllocationIds, uni.institutionName, pendingNames);
     } finally {
       setIsProcessingBulk(false);
     }
