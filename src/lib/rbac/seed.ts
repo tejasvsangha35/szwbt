@@ -139,14 +139,6 @@ export async function seedRbacData() {
       roles: [ROLES.MATCH_OFFICIAL],
     },
     {
-      email: "umpire@szwbt2026.edu",
-      name: "Court 01 Umpire",
-      badge: "COURT 01 UMPIRE",
-      targetUrl: "/official",
-      officialId: "official-court-01",
-      roles: [ROLES.MATCH_OFFICIAL],
-    },
-    {
       email: "team@szwbt2026.edu",
       name: "Team Manager",
       badge: "UNIVERSITY DESK",

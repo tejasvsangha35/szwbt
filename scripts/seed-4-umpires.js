@@ -34,15 +34,6 @@ const UMPIRES = [
     courtNumber: 'Court 04',
     description: 'Lead Court Umpire for Court 04. Manages digital scoreboard, line calls, service faults, and scoresheets.',
   },
-  // Backwards-compatible alias for existing umpire account
-  {
-    email: 'umpire@szwbt2026.edu',
-    name: 'Court 01 Umpire',
-    badge: 'COURT 01 UMPIRE',
-    officialId: 'official-court-01',
-    courtNumber: 'Court 01',
-    description: 'Chief Umpire Court 01. Matches umpire1 profile.',
-  },
 ];
 
 async function main() {

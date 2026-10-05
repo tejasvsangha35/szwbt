@@ -82,8 +82,7 @@ The interface merges the nostalgic energy of classic 90s Japanese arcade games (
 | :--- | :--- | :--- | :--- |
 | **Super Admin / Root** | `admin@szwbt2026.edu` | Level 04 Root | `/admin` |
 | **Technical Operations Lead (TechOps)** | `techops@szwbt2026.edu` | TechOps Command | `/operations` |
-| **Tournament Administrator** | `tournament@szwbt2026.edu` | Tournament Admin | `/admin/tournament` |
-| **Chief Umpire** | `umpire@szwbt2026.edu` | BWF Technical | `/official` |
+| **Court Umpires (Courts 1–4)** | `umpire1`..`umpire4@szwbt2026.edu` | COURT UMPIRE | `/official` |
 | **Registration Desk Chief** | `registration@szwbt2026.edu` | Desk 02 Chief | `/register` |
 | **Document Scanner Officer** | `scanner@szwbt2026.edu` | Doc Scanner 01 | `/scanner` |
 | **Hostel Logistics Officer** | `hostel@szwbt2026.edu` | Residence Advisor | `/admin/accommodation` |

@@ -197,10 +197,6 @@ export function resolveOfficialCourt(user?: {
     return "Court 04";
   }
 
-  if (email === "umpire@szwbt2026.edu" || email === "umpire") {
-    return "Court 01";
-  }
-
   return null;
 }
 
