@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { UserContext } from "@/lib/rbac/service";
+import { UserContext, resolveOfficialCourt } from "@/lib/rbac/service";
 import { ROLES } from "@/lib/rbac/roles";
 import { logAuditEvent } from "@/lib/rbac/audit";
 import { MATCH_STATUS, COURT_STATUS, resolveKnockoutDependencies } from "@/lib/matches/lifecycle";
@@ -42,20 +42,39 @@ export const POST = withAuth(
         context.roles.includes(ROLES.SUPER_ADMIN) ||
         context.roles.includes(ROLES.TOURNAMENT_ADMIN);
 
+      const assignedCourt = resolveOfficialCourt(context.user);
+      const isCourtMatch = Boolean(
+        assignedCourt &&
+        match.court &&
+        match.court.trim().toLowerCase() === assignedCourt.trim().toLowerCase()
+      );
+
       const isAssignedOfficial =
         match.assignedOfficialId &&
         (match.assignedOfficialId === context.user.id ||
           match.assignedOfficialId === context.user.officialId ||
           match.assignedOfficialId === context.user.email);
 
-      if (!isSuper && !isAssignedOfficial) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `403 Forbidden: You are not assigned to umpire Match #${match.matchNumber}.`,
-          },
-          { status: 403 }
-        );
+      if (!isSuper) {
+        if (assignedCourt && match.court && !isCourtMatch) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `403 Forbidden: You are assigned exclusively to ${assignedCourt} and cannot officiate Match #${match.matchNumber} on ${match.court}.`,
+            },
+            { status: 403 }
+          );
+        }
+
+        if (!assignedCourt && !isAssignedOfficial) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `403 Forbidden: You are not assigned to umpire Match #${match.matchNumber}.`,
+            },
+            { status: 403 }
+          );
+        }
       }
 
       switch (action) {

@@ -18,6 +18,15 @@ const DEFAULT_SYSTEM_ROLES: Record<string, string[]> = {
   "transport@szwbt2026.edu": [ROLES.TRANSPORT_STAFF],
   "finance@szwbt2026.edu": [ROLES.FINANCE_STAFF],
   "umpire@szwbt2026.edu": [ROLES.MATCH_OFFICIAL],
+  "umpire1@szwbt2026.edu": [ROLES.MATCH_OFFICIAL],
+  "umpire2@szwbt2026.edu": [ROLES.MATCH_OFFICIAL],
+  "umpire3@szwbt2026.edu": [ROLES.MATCH_OFFICIAL],
+  "umpire4@szwbt2026.edu": [ROLES.MATCH_OFFICIAL],
+  "umpire": [ROLES.MATCH_OFFICIAL],
+  "umpire1": [ROLES.MATCH_OFFICIAL],
+  "umpire2": [ROLES.MATCH_OFFICIAL],
+  "umpire3": [ROLES.MATCH_OFFICIAL],
+  "umpire4": [ROLES.MATCH_OFFICIAL],
   "organizer@szwbt2026.edu": [ROLES.ORGANIZER],
   "secretariat@szwbt2026.edu": [ROLES.ORGANIZER],
   "comm@szwbt2026.edu": [ROLES.COMMUNICATIONS_STAFF],
@@ -151,13 +160,18 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanCred = credential.toLowerCase().trim();
+    const candidateEmails = [cleanCred];
+    if (!cleanCred.includes("@")) {
+      candidateEmails.push(`${cleanCred}@szwbt2026.edu`);
+    }
 
     // 1. Authoritative User Lookup in PostgreSQL
     let user = await prisma.user.findFirst({
       where: {
         OR: [
-          { email: cleanCred },
-          { name: { equals: cleanCred, mode: "insensitive" } },
+          { email: { in: candidateEmails } },
+          { officialId: { in: candidateEmails, mode: "insensitive" } },
+          { name: { in: candidateEmails, mode: "insensitive" } },
         ],
       },
     });
@@ -167,8 +181,8 @@ export async function POST(req: NextRequest) {
       const official = await prisma.official.findFirst({
         where: {
           OR: [
-            { email: cleanCred },
-            { name: { equals: cleanCred, mode: "insensitive" } },
+            { email: { in: candidateEmails } },
+            { name: { in: candidateEmails, mode: "insensitive" } },
           ],
         },
       });
@@ -209,8 +223,8 @@ export async function POST(req: NextRequest) {
       const official = await prisma.official.findFirst({
         where: {
           OR: [
-            { email: cleanCred },
-            { name: { equals: cleanCred, mode: "insensitive" } },
+            { email: { in: candidateEmails } },
+            { name: { in: candidateEmails, mode: "insensitive" } },
           ],
         },
       });

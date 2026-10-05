@@ -131,6 +131,80 @@ export function hasAllPermissions(context: UserContext, requiredPermissions: str
 }
 
 /**
+ * Resolves the physical court assigned to an official/umpire.
+ * Returns "Court 01", "Court 02", "Court 03", "Court 04", or null.
+ */
+export function resolveOfficialCourt(user?: {
+  email?: string | null;
+  officialId?: string | null;
+  name?: string | null;
+  badge?: string | null;
+} | null): string | null {
+  if (!user) return null;
+
+  const email = (user.email || "").toLowerCase();
+  const officialId = (user.officialId || "").toLowerCase();
+  const name = (user.name || "").toLowerCase();
+  const badge = (user.badge || "").toLowerCase();
+
+  const combined = `${email} ${officialId} ${name} ${badge}`;
+
+  if (
+    email.startsWith("umpire1") ||
+    officialId.includes("court-01") ||
+    officialId === "court 01" ||
+    combined.includes("court 01") ||
+    combined.includes("court 1") ||
+    combined.includes("court-01") ||
+    combined.includes("court-1")
+  ) {
+    return "Court 01";
+  }
+
+  if (
+    email.startsWith("umpire2") ||
+    officialId.includes("court-02") ||
+    officialId === "court 02" ||
+    combined.includes("court 02") ||
+    combined.includes("court 2") ||
+    combined.includes("court-02") ||
+    combined.includes("court-2")
+  ) {
+    return "Court 02";
+  }
+
+  if (
+    email.startsWith("umpire3") ||
+    officialId.includes("court-03") ||
+    officialId === "court 03" ||
+    combined.includes("court 03") ||
+    combined.includes("court 3") ||
+    combined.includes("court-03") ||
+    combined.includes("court-3")
+  ) {
+    return "Court 03";
+  }
+
+  if (
+    email.startsWith("umpire4") ||
+    officialId.includes("court-04") ||
+    officialId === "court 04" ||
+    combined.includes("court 04") ||
+    combined.includes("court 4") ||
+    combined.includes("court-04") ||
+    combined.includes("court-4")
+  ) {
+    return "Court 04";
+  }
+
+  if (email === "umpire@szwbt2026.edu" || email === "umpire") {
+    return "Court 01";
+  }
+
+  return null;
+}
+
+/**
  * Checks if user has a specific role.
  */
 export function hasRole(context: UserContext, roleName: string): boolean {
@@ -143,7 +217,7 @@ export function hasRole(context: UserContext, roleName: string): boolean {
  * Combines RBAC with Resource Ownership / Assignment:
  *
  * 1. SUPER_ADMIN: Unrestricted scope.
- * 2. MATCH_OFFICIAL: Can only score matches assigned to them (match.assignedOfficialId).
+ * 2. MATCH_OFFICIAL: Can only score matches assigned to them (match.assignedOfficialId) or in their court.
  * 3. TEAM_MANAGER: Can only access resources of their own team (teamId).
  * 4. PARTICIPANT: Can only access their own record (participantId).
  * 5. PAYMENT: Staff can only record payments for categories they manage.
@@ -174,27 +248,45 @@ export async function checkResourceScope(
 
     if (context.roles.includes(ROLES.MATCH_OFFICIAL)) {
       let assignedOfficialId = options?.assignedOfficialId;
+      let matchCourt: string | null = null;
 
       // If assignedOfficialId not provided in options, check in DB if matchId is given
-      if (!assignedOfficialId && resourceId) {
+      if (resourceId) {
         try {
           const match = await prisma.match.findUnique({
             where: { id: resourceId },
-            select: { assignedOfficialId: true },
+            select: { assignedOfficialId: true, court: true },
           });
           assignedOfficialId = match?.assignedOfficialId;
+          matchCourt = match?.court || null;
         } catch (e) {
           // fallback
         }
       }
 
-      const isAssigned =
+      const assignedCourt = resolveOfficialCourt(context.user);
+      const isCourtMatch = Boolean(
+        assignedCourt &&
+        matchCourt &&
+        matchCourt.trim().toLowerCase() === assignedCourt.trim().toLowerCase()
+      );
+
+      const isDirectlyAssigned = Boolean(
         assignedOfficialId &&
         (assignedOfficialId === context.user.officialId ||
           assignedOfficialId === context.user.id ||
-          assignedOfficialId === context.user.email);
+          assignedOfficialId === context.user.email)
+      );
 
-      if (!isAssigned) {
+      // Strict court isolation: if official is mapped to a court, they cannot access other courts
+      if (assignedCourt && matchCourt && !isCourtMatch) {
+        return {
+          allowed: false,
+          reason: `Match Official is assigned exclusively to ${assignedCourt} and cannot access match on ${matchCourt}.`,
+        };
+      }
+
+      if (!isDirectlyAssigned && !isCourtMatch) {
         return {
           allowed: false,
           reason: `Match Official is not assigned to match ${resourceId || "specified"}.`,

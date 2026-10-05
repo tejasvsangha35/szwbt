@@ -57,10 +57,14 @@ szwbt2026pass
 | **Arena Field Volunteer** | `volunteer@szwbt2026.edu` | `szwbt2026pass` | Mobile Field | [`/volunteer`](http://localhost:3000/volunteer) | Shift tasks, live court assistance, spectator management, water/shuttle replenishment, and field SOS distress calls. |
 | **Field Volunteer (Support)** | `volunteer2@szwbt2026.edu` | `szwbt2026pass` | Mobile Field | [`/volunteer`](http://localhost:3000/volunteer) | Secondary field volunteer for shift relief, shuttle replenishment, and runner tasks. |
 
-#### 6. Court Technical & Match Officiating
-| Role | Email / Login ID | Password | Clearance Level | Primary Portal Route | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Chief Umpire** | `umpire@szwbt2026.edu` | `szwbt2026pass` | BWF Technical | [`/official`](http://localhost:3000/official) | Court 1-4 digital scoreboard controller, point scoring, line calls, service faults, cards, and signed scoresheets. |
+#### 6. Court Technical & Match Officiating (Dedicated Court Umpires)
+| Role | Email / Login ID | Password | Clearance Level | Court Jurisdiction | Primary Portal Route | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Court 01 Umpire** | `umpire1@szwbt2026.edu`<br>`umpire1` | `szwbt2026pass` | COURT 01 UMPIRE | **Court 01** | [`/official`](http://localhost:3000/official) | Exclusive digital scoreboard, point scoring, line calls, service faults, cards, and scoresheets for Court 01 matches. |
+| **Court 02 Umpire** | `umpire2@szwbt2026.edu`<br>`umpire2` | `szwbt2026pass` | COURT 02 UMPIRE | **Court 02** | [`/official`](http://localhost:3000/official) | Exclusive digital scoreboard, point scoring, line calls, service faults, cards, and scoresheets for Court 02 matches. |
+| **Court 03 Umpire** | `umpire3@szwbt2026.edu`<br>`umpire3` | `szwbt2026pass` | COURT 03 UMPIRE | **Court 03** | [`/official`](http://localhost:3000/official) | Exclusive digital scoreboard, point scoring, line calls, service faults, cards, and scoresheets for Court 03 matches. |
+| **Court 04 Umpire** | `umpire4@szwbt2026.edu`<br>`umpire4` | `szwbt2026pass` | COURT 04 UMPIRE | **Court 04** | [`/official`](http://localhost:3000/official) | Exclusive digital scoreboard, point scoring, line calls, service faults, cards, and scoresheets for Court 04 matches. |
+| **Chief Umpire (Legacy Alias)** | `umpire@szwbt2026.edu`<br>`umpire` | `szwbt2026pass` | BWF Technical | Court 01 Default | [`/official`](http://localhost:3000/official) | Backwards-compatible alias mapped to Court 01 operations. |
 
 #### 7. Contingents, Team Management & Athletes
 | Role | Email / Login ID | Password | Clearance Level | Primary Portal Route | Description |

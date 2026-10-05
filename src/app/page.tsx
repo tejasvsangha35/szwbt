@@ -911,14 +911,14 @@ export default function Home() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.62, ease: "easeOut" }}
-              className="pointer-events-auto p-4 bg-[#060A14]/80 border border-white/15 backdrop-blur-2xl rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.7)] max-w-sm w-full sm:w-auto font-display text-white"
+              className="pointer-events-auto p-4 bg-[#060A14]/80 border border-white/15 backdrop-blur-2xl rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.7)] min-w-[280px] sm:min-w-[320px] max-w-sm w-full sm:w-auto font-display text-white"
             >
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-[10px] text-[#FF5A16] tracking-wider uppercase font-semibold">
-                <span className="flex items-center gap-2 font-rajdhani font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A16] animate-ping" />
+              <div className="flex items-center justify-between gap-4 pb-2 mb-2 border-b border-white/10 text-[10px] tracking-wider uppercase font-semibold">
+                <span className="flex items-center gap-2 font-rajdhani font-bold text-[#FF5A16] whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A16] animate-ping shrink-0" />
                   TOURNAMENT SPECIFICATIONS
                 </span>
-                <span className="text-slate-400 font-sans">BWF RATIFIED</span>
+                <span className="text-slate-400 font-sans shrink-0 whitespace-nowrap">BWF RATIFIED</span>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                 {[

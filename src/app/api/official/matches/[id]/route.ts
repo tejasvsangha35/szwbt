@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { UserContext } from "@/lib/rbac/service";
+import { UserContext, resolveOfficialCourt } from "@/lib/rbac/service";
 import { ROLES } from "@/lib/rbac/roles";
 import { getScoringConfigForCategory } from "@/lib/scoring/rules";
 
 /**
  * GET /api/official/matches/[id]
  * Fetches single match telemetry, readiness checklist, scoring config, and event timeline.
- * Strictly verifies that the authenticated official is assigned to this match.
+ * Strictly verifies that the authenticated official is assigned to this court/match.
  */
 export const GET = withAuth(
   async (req: NextRequest, context: UserContext, { params }: { params: Promise<{ id: string }> }) => {
@@ -37,20 +37,40 @@ export const GET = withAuth(
         context.roles.includes(ROLES.SUPER_ADMIN) ||
         context.roles.includes(ROLES.TOURNAMENT_ADMIN);
 
-      const isAssigned =
+      const assignedCourt = resolveOfficialCourt(context.user);
+      const isCourtMatch = Boolean(
+        assignedCourt &&
+        match.court &&
+        match.court.trim().toLowerCase() === assignedCourt.trim().toLowerCase()
+      );
+
+      const isDirectlyAssigned = Boolean(
         match.assignedOfficialId &&
         (match.assignedOfficialId === context.user.id ||
           match.assignedOfficialId === context.user.officialId ||
-          match.assignedOfficialId === context.user.email);
+          match.assignedOfficialId === context.user.email)
+      );
 
-      if (!isSuper && !isAssigned) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `403 Forbidden: You are not assigned to officiate match ${match.matchNumber}. Access denied.`,
-          },
-          { status: 403 }
-        );
+      if (!isSuper) {
+        if (assignedCourt && match.court && !isCourtMatch) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `403 Forbidden: You are assigned to ${assignedCourt} and cannot access match ${match.matchNumber} on ${match.court}. Access denied.`,
+            },
+            { status: 403 }
+          );
+        }
+
+        if (!assignedCourt && !isDirectlyAssigned) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `403 Forbidden: You are not assigned to officiate match ${match.matchNumber}. Access denied.`,
+            },
+            { status: 403 }
+          );
+        }
       }
 
       // Fetch court details

@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { UserContext } from "@/lib/rbac/service";
+import { UserContext, resolveOfficialCourt } from "@/lib/rbac/service";
 import { ROLES } from "@/lib/rbac/roles";
 
 /**
  * GET /api/official/matches
- * Fetches only matches assigned to the authenticated match official.
- * Strict resource-level isolation enforced server-side.
+ * Fetches matches assigned to the authenticated match official/umpire.
+ * Strict court-level isolation enforced server-side:
+ * Umpire 1 -> Court 01 only
+ * Umpire 2 -> Court 02 only
+ * Umpire 3 -> Court 03 only
+ * Umpire 4 -> Court 04 only
  */
 export const GET = withAuth(
   async (req: NextRequest, context: UserContext) => {
@@ -29,6 +33,15 @@ export const GET = withAuth(
         );
       }
 
+      // Resolve physical court assigned to this umpire
+      const assignedCourt = resolveOfficialCourt(context.user);
+      const courtQueryParam = req.nextUrl.searchParams.get("court");
+
+      // Super Admin can toggle between courts via query param; Umpires are strictly locked
+      const effectiveCourt = !isSuper
+        ? assignedCourt
+        : (courtQueryParam && courtQueryParam.toUpperCase() !== "ALL" ? courtQueryParam : assignedCourt);
+
       // Resolve official identifiers
       const officialIdentifiers = [
         context.user.id,
@@ -36,13 +49,28 @@ export const GET = withAuth(
         context.user.email,
       ].filter(Boolean) as string[];
 
+      // Construct court-isolated filter
+      let whereClause: any = undefined;
+
+      if (!isSuper) {
+        if (assignedCourt) {
+          whereClause = {
+            court: { equals: assignedCourt, mode: "insensitive" },
+          };
+        } else {
+          whereClause = {
+            assignedOfficialId: { in: officialIdentifiers },
+          };
+        }
+      } else if (courtQueryParam && courtQueryParam.toUpperCase() !== "ALL") {
+        whereClause = {
+          court: { equals: courtQueryParam, mode: "insensitive" },
+        };
+      }
+
       // Query database for assigned matches
       const matches = await prisma.match.findMany({
-        where: isSuper
-          ? undefined
-          : {
-              assignedOfficialId: { in: officialIdentifiers },
-            },
+        where: whereClause,
         include: {
           day: { select: { id: true, date: true, dayNumber: true, stage: true } },
           events: { orderBy: { timestamp: "desc" }, take: 5 },
@@ -51,7 +79,9 @@ export const GET = withAuth(
       });
 
       // Fetch all courts for status enrichment
-      const courts = await prisma.court.findMany();
+      const courts = await prisma.court.findMany({
+        orderBy: { courtNumber: "asc" },
+      });
       const courtMap = new Map(courts.map((c) => [c.courtNumber.toLowerCase(), c]));
 
       // Enrich matches with court status
@@ -79,6 +109,11 @@ export const GET = withAuth(
         (m) => m.status === "COMPLETED" || m.status === "RESULT_CONFIRMED" || m.status === "RESULT_SUBMITTED" || m.status === "WALKOVER"
       );
 
+      // Resolve specific court telemetry
+      const activeCourtInfo = effectiveCourt
+        ? courtMap.get(effectiveCourt.toLowerCase()) || null
+        : (currentMatch ? courtMap.get(currentMatch.court.toLowerCase()) || null : null);
+
       return NextResponse.json({
         success: true,
         data: {
@@ -86,12 +121,16 @@ export const GET = withAuth(
           upcomingMatches,
           completedMatches,
           totalAssigned: matches.length,
+          assignedCourt: effectiveCourt,
+          courtDetails: activeCourtInfo,
+          allCourts: courts,
           official: {
             id: context.user.id,
             name: context.user.name,
             email: context.user.email,
             officialId: context.user.officialId || "OFFICIAL",
-            badge: context.user.badge || "Court Umpire",
+            badge: context.user.badge || (effectiveCourt ? `${effectiveCourt.toUpperCase()} UMPIRE` : "Court Umpire"),
+            court: effectiveCourt,
           },
           serverTime: new Date().toISOString(),
         },

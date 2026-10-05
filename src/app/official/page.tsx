@@ -31,7 +31,12 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/lib/rbac/useAuth";
-import { ScoringConfig } from "@/lib/scoring/rules";
+import {
+  ScoringConfig,
+  analyzeMatchSets,
+  getScoringConfigForCategory,
+  applyPointToMatch,
+} from "@/lib/scoring/rules";
 
 interface OfficialMatchItem {
   id: string;
@@ -92,6 +97,13 @@ export default function MatchOfficialWorkspace() {
   const [matchDetail, setMatchDetail] = useState<MatchDetailResponse | null>(null);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
+  // Court Scoping & Telemetry
+  const [assignedCourt, setAssignedCourt] = useState<string | null>(null);
+  const [courtDetails, setCourtDetails] = useState<any>(null);
+  const [officialInfo, setOfficialInfo] = useState<any>(null);
+  const [allCourts, setAllCourts] = useState<any[]>([]);
+  const [superAdminCourtFilter, setSuperAdminCourtFilter] = useState<string | null>(null);
+
   // Sync & Connection Status
   const [connectionStatus, setConnectionStatus] = useState<"CONNECTED" | "SYNCING" | "SYNC_DELAYED" | "DISCONNECTED">("CONNECTED");
   const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString());
@@ -130,13 +142,18 @@ export default function MatchOfficialWorkspace() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch Assigned Matches Roster
-  const fetchAssignedMatches = useCallback(async (quiet = false) => {
+  // Fetch Assigned Matches Roster (Scoped strictly to this umpire's court)
+  const fetchAssignedMatches = useCallback(async (quiet = false, overrideFilter?: string | null) => {
     if (!quiet) setLoading(true);
     setConnectionStatus("SYNCING");
 
     try {
-      const res = await fetch("/api/official/matches", {
+      const targetFilter = overrideFilter !== undefined ? overrideFilter : superAdminCourtFilter;
+      const url = targetFilter && isSuperAdmin
+        ? `/api/official/matches?court=${encodeURIComponent(targetFilter)}`
+        : "/api/official/matches";
+
+      const res = await fetch(url, {
         headers: { "Cache-Control": "no-cache" },
       });
 
@@ -156,6 +173,10 @@ export default function MatchOfficialWorkspace() {
         setCurrentMatch(json.data.currentMatch);
         setUpcomingMatches(json.data.upcomingMatches || []);
         setCompletedMatches(json.data.completedMatches || []);
+        setAssignedCourt(json.data.assignedCourt || null);
+        setCourtDetails(json.data.courtDetails || null);
+        setOfficialInfo(json.data.official || null);
+        setAllCourts(json.data.allCourts || []);
         setConnectionStatus("CONNECTED");
         setLastSyncTime(new Date().toLocaleTimeString());
 
@@ -170,7 +191,7 @@ export default function MatchOfficialWorkspace() {
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, [selectedMatchId]);
+  }, [selectedMatchId, superAdminCourtFilter, isSuperAdmin]);
 
   // Fetch Detailed Match Telemetry for Selected Match
   const fetchMatchDetail = useCallback(async (matchId: string, quiet = false) => {
@@ -233,6 +254,25 @@ export default function MatchOfficialWorkspace() {
     setActionPending(true);
     setBannerAlert(null);
 
+    // Optimistic scoring update for zero-latency court-side responsiveness
+    if (action === "SCORE" && payload?.pointTo && activeMatch) {
+      const scoringConfig = matchDetail?.scoringConfig || getScoringConfigForCategory(activeMatch.category);
+      const optResult = applyPointToMatch(activeMatch.scoreA, activeMatch.scoreB, payload.pointTo, scoringConfig);
+      if (optResult.valid) {
+        setMatchDetail((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            match: {
+              ...prev.match,
+              scoreA: optResult.newScoreAStr,
+              scoreB: optResult.newScoreBStr,
+            },
+          };
+        });
+      }
+    }
+
     try {
       const clientRequestId = `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const res = await fetch(`/api/official/matches/${selectedMatchId}/actions`, {
@@ -273,10 +313,25 @@ export default function MatchOfficialWorkspace() {
           type: "ERROR",
           message: json.error || `Action ${action} failed.`,
         });
+        await fetchMatchDetail(selectedMatchId, true);
         return;
       }
 
-      // Success: Refresh state immediately
+      // If server returned updated match data, apply it immediately
+      if (json.data) {
+        setMatchDetail((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            match: {
+              ...prev.match,
+              ...json.data,
+            },
+          };
+        });
+      }
+
+      // Refresh state immediately
       await fetchMatchDetail(selectedMatchId, true);
       await fetchAssignedMatches(true);
 
@@ -290,12 +345,38 @@ export default function MatchOfficialWorkspace() {
         type: "ERROR",
         message: "Network error. Please check your connection and retry.",
       });
+      await fetchMatchDetail(selectedMatchId, true);
     } finally {
       setActionPending(false);
     }
   };
 
   const activeMatch = matchDetail?.match || currentMatch;
+
+  const scoringConfig = matchDetail?.scoringConfig || getScoringConfigForCategory(activeMatch?.category);
+  const matchAnalysis = useMemo(() => {
+    if (!activeMatch) return null;
+    return analyzeMatchSets(activeMatch.scoreA, activeMatch.scoreB, scoringConfig);
+  }, [activeMatch?.scoreA, activeMatch?.scoreB, scoringConfig]);
+
+  // Derive court identifier and initials (e.g. "Court 01" -> "C1")
+  const effectiveCourtName = assignedCourt || officialInfo?.court || currentMatch?.court || null;
+
+  const courtInitials = useMemo(() => {
+    if (effectiveCourtName) {
+      const match = effectiveCourtName.match(/(\d+)/);
+      return match ? `C${parseInt(match[1], 10)}` : effectiveCourtName.substring(0, 2).toUpperCase();
+    }
+    return user?.name ? user.name.charAt(0).toUpperCase() : "C";
+  }, [effectiveCourtName, user?.name]);
+
+  const avatarGradient = useMemo(() => {
+    if (effectiveCourtName?.includes("01") || effectiveCourtName?.includes("1")) return "from-cyan-500 to-blue-600";
+    if (effectiveCourtName?.includes("02") || effectiveCourtName?.includes("2")) return "from-amber-500 to-orange-600";
+    if (effectiveCourtName?.includes("03") || effectiveCourtName?.includes("3")) return "from-emerald-500 to-teal-600";
+    if (effectiveCourtName?.includes("04") || effectiveCourtName?.includes("4")) return "from-purple-500 to-indigo-600";
+    return "from-orange-500 to-amber-600";
+  }, [effectiveCourtName]);
 
   return (
     <div className="min-h-screen bg-[#050914] text-slate-100 flex flex-col font-sans selection:bg-[#FF5A16] selection:text-white">
@@ -316,7 +397,7 @@ export default function MatchOfficialWorkspace() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-mono tracking-widest text-cyan-400 uppercase font-bold">
-                  ● OFFICIAL MODE
+                  ● {effectiveCourtName ? `${effectiveCourtName.toUpperCase()} UMPIRE` : "OFFICIAL MODE"}
                 </span>
                 <h1 className="text-xs sm:text-sm font-black tracking-wider text-white uppercase font-mono">
                   MATCH OFFICIAL CONSOLE
@@ -368,15 +449,15 @@ export default function MatchOfficialWorkspace() {
 
             {/* Official Info */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-              <div className="w-7 h-7 rounded bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center font-bold text-xs text-white">
-                {user?.name ? user.name.charAt(0).toUpperCase() : "O"}
+              <div className={`w-7 h-7 rounded bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-bold text-xs text-white shadow-sm font-mono`}>
+                {courtInitials}
               </div>
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-xs font-bold text-white leading-tight">
-                  {user?.name || "Official"}
+                  {user?.name || officialInfo?.name || (effectiveCourtName ? `${effectiveCourtName} Umpire` : "Official")}
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">
-                  {user?.officialId || "UMPIRE"}
+                  {effectiveCourtName ? `official ${effectiveCourtName.toLowerCase()}` : (user?.officialId || "UMPIRE")}
                 </span>
               </div>
             </div>
@@ -462,6 +543,84 @@ export default function MatchOfficialWorkspace() {
 
       {/* ── MAIN CONTENT CONTAINER ───────────────────────────────────────── */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-3 sm:p-6 space-y-6">
+        {/* ── SUPER ADMIN COURT OVERRIDE SELECTOR ── */}
+        {isSuperAdmin && (
+          <div className="bg-[#0A1024] border border-amber-600/40 rounded-xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs font-mono font-bold text-amber-300 uppercase tracking-wider">
+                SUPER ADMIN COURT SELECTOR:
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+              {["Court 01", "Court 02", "Court 03", "Court 04", "ALL"].map((cName) => {
+                const isActive = (superAdminCourtFilter === cName) || (cName === "ALL" && !superAdminCourtFilter);
+                return (
+                  <button
+                    key={cName}
+                    onClick={() => {
+                      const next = cName === "ALL" ? null : cName;
+                      setSuperAdminCourtFilter(next);
+                      setSelectedMatchId(null);
+                      fetchAssignedMatches(false, next);
+                    }}
+                    className={`px-3 py-1 rounded text-xs font-bold transition ${
+                      isActive
+                        ? "bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                        : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                    }`}
+                  >
+                    {cName === "ALL" ? "All 4 Courts" : cName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── COURT INFORMATION & VENUE TELEMETRY BAR ── */}
+        <div className="bg-gradient-to-r from-[#091124] via-[#0A1633] to-[#091124] border border-cyan-900/40 rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGradient} flex items-center justify-center font-mono font-black text-white text-base shadow-md`}>
+                {courtInitials}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-black font-mono text-white tracking-wide">
+                    {effectiveCourtName || "ALL TOURNAMENT COURTS"}
+                  </h2>
+                  <span className="px-2 py-0.5 bg-emerald-950/80 border border-emerald-600/60 text-emerald-400 font-mono text-[10px] font-bold rounded">
+                    {courtDetails?.status || "OPERATIONAL"}
+                  </span>
+                  <span className="px-2 py-0.5 bg-cyan-950/70 border border-cyan-700/50 text-cyan-300 font-mono text-[10px] font-bold rounded">
+                    EXCLUSIVE MATCH CONTROL
+                  </span>
+                </div>
+                <div className="text-xs font-mono text-slate-400 flex flex-wrap items-center gap-2 mt-1">
+                  <span className="text-slate-300">{courtDetails?.venue || "KLE Tech Indoor Stadium, Hubballi"}</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-400">Assigned Umpire: <strong className="text-white">{courtDetails?.umpire || user?.name || "Lead Official"}</strong></span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-500">BWF 21-Pt Rally Format</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="flex items-center gap-2 sm:gap-3 font-mono text-xs ml-auto">
+              <div className="px-3 py-2 bg-[#050914] border border-slate-800 rounded-lg text-center">
+                <span className="text-[10px] text-slate-500 block">ASSIGNED QUEUE</span>
+                <span className="text-cyan-400 font-black text-sm">{upcomingMatches.length} Pending</span>
+              </div>
+              <div className="px-3 py-2 bg-[#050914] border border-slate-800 rounded-lg text-center">
+                <span className="text-[10px] text-slate-500 block">COMPLETED</span>
+                <span className="text-emerald-400 font-black text-sm">{completedMatches.length} Matches</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* LOADING SKELETON */}
         {loading && (
           <div className="grid grid-cols-1 gap-4 animate-pulse">
@@ -485,19 +644,30 @@ export default function MatchOfficialWorkspace() {
                       <Shield className="w-8 h-8" />
                     </div>
                     <h3 className="text-base font-bold text-white font-mono uppercase tracking-wider">
-                      NO MATCH ASSIGNED
+                      NO ACTIVE MATCH ON {effectiveCourtName?.toUpperCase() || "YOUR COURT"}
                     </h3>
                     <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                      You currently have no matches assigned to your official badge. Matches assigned by
-                      Tournament Live Operations will appear here automatically.
+                      There are currently no active matches on {effectiveCourtName || "your assigned court"}.
+                      {upcomingMatches.length > 0
+                        ? ` You have ${upcomingMatches.length} upcoming matches queued in your court assignments.`
+                        : " Matches assigned to this court by Tournament Live Operations will appear here automatically."}
                     </p>
-                    <div className="pt-2">
+                    <div className="pt-2 flex items-center justify-center gap-2">
                       <button
                         onClick={() => fetchAssignedMatches()}
                         className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-mono font-bold rounded border border-slate-700 transition"
                       >
                         REFRESH ASSIGNMENTS
                       </button>
+                      {upcomingMatches.length > 0 && (
+                        <button
+                          onClick={() => setActiveTab("UPCOMING")}
+                          className="px-4 py-2 bg-[#FF5A16] hover:bg-[#e04f14] text-xs font-mono font-bold text-white rounded transition flex items-center gap-1.5"
+                        >
+                          <span>VIEW {upcomingMatches.length} QUEUED MATCHES</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -689,6 +859,80 @@ export default function MatchOfficialWorkspace() {
                     {/* ── STATE B: LIVE SCORING WORKSPACE (TOUCH-FIRST HIGH CONTRAST) ── */}
                     {(activeMatch.status === "LIVE" || activeMatch.status === "PAUSED") && (
                       <div className="space-y-4">
+                        {/* MATCH FINISHED BANNER */}
+                        {matchAnalysis?.isMatchFinished && (
+                          <div className="bg-emerald-950/80 border-2 border-emerald-500 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-pulse">
+                            <div className="flex items-center gap-3">
+                              <Trophy className="w-6 h-6 text-emerald-400 shrink-0" />
+                              <div>
+                                <span className="text-xs font-mono font-black text-emerald-300 uppercase tracking-wider block">
+                                  MATCH DECIDED (BEST OF {scoringConfig.gamesToWin * 2 - 1})
+                                </span>
+                                <h3 className="text-base sm:text-lg font-black text-white">
+                                  {matchAnalysis.matchWinner === "PLAYER_A" ? activeMatch.playerA : activeMatch.playerB} Won The Match!
+                                </h3>
+                                <p className="text-xs text-slate-300 font-mono">
+                                  Final Sets: {activeMatch.scoreA} — {activeMatch.scoreB}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSelectedWinner(matchAnalysis.matchWinner || "PLAYER_A");
+                                setCompleteModalOpen(true);
+                              }}
+                              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono text-xs font-black rounded-lg shadow-lg flex items-center gap-2 transition"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>SUBMIT OFFICIAL RESULT</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* ACTIVE GAME INDICATOR & SETS PROGRESS TRACKER */}
+                        <div className="bg-[#070E20] border border-cyan-800/50 rounded-xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 rounded bg-cyan-950 border border-cyan-500 text-cyan-300 font-mono text-xs sm:text-sm font-black uppercase tracking-wider flex items-center gap-2 shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+                              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                              GAME {matchAnalysis?.activeGameNumber || 1}
+                              {matchAnalysis?.activeGameNumber === 3 && (
+                                <span className="text-[#FF5A16] font-extrabold ml-1">(DECIDER)</span>
+                              )}
+                            </span>
+                            <span className="text-xs font-mono text-slate-300">
+                              Games Won: <span className="text-cyan-400 font-bold">{matchAnalysis?.gamesWonA || 0}</span> - <span className="text-orange-400 font-bold">{matchAnalysis?.gamesWonB || 0}</span>
+                            </span>
+                          </div>
+
+                          {/* Sets Pill Tracker */}
+                          <div className="flex items-center gap-2 font-mono text-xs overflow-x-auto py-0.5">
+                            {matchAnalysis?.history.map((h, i) => (
+                              <div
+                                key={i}
+                                className={`px-3 py-1 rounded border flex items-center gap-2 ${
+                                  h.setNumber === matchAnalysis.activeGameNumber && !h.isFinished
+                                    ? "bg-cyan-950/80 border-cyan-500 text-white font-bold ring-2 ring-cyan-500/40"
+                                    : h.isFinished
+                                    ? "bg-slate-900/90 border-slate-700/80 text-slate-300"
+                                    : "bg-slate-950 border-slate-800 text-slate-500"
+                                }`}
+                              >
+                                <span className="text-[10px] text-slate-400 uppercase font-semibold">G{h.setNumber}</span>
+                                <span className="tracking-wider">
+                                  <span className={h.winner === "PLAYER_A" ? "text-cyan-400 font-black" : ""}>{h.scoreA}</span>
+                                  <span className="text-slate-500 px-0.5">-</span>
+                                  <span className={h.winner === "PLAYER_B" ? "text-orange-400 font-black" : ""}>{h.scoreB}</span>
+                                </span>
+                                {h.isFinished && (
+                                  <span className={`text-[9px] px-1 py-0.2 rounded font-black ${h.winner === "PLAYER_A" ? "bg-cyan-950 text-cyan-300" : "bg-orange-950 text-orange-300"}`}>
+                                    {h.winner === "PLAYER_A" ? activeMatch.playerA.split(" ")[0] : activeMatch.playerB.split(" ")[0]}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                         {/* BIG SCOREBOARD CONTROLS */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {/* PLAYER A SCORING ZONE */}
@@ -707,17 +951,20 @@ export default function MatchOfficialWorkspace() {
                               </h2>
                             </div>
 
-                            {/* GIANT SCORE */}
+                            {/* GIANT SCORE (ACTIVE GAME) */}
                             <div className="py-6 sm:py-8 text-center">
                               <span className="text-7xl sm:text-8xl font-black font-mono text-cyan-400 tracking-tight drop-shadow-[0_0_20px_rgba(24,216,208,0.4)]">
-                                {activeMatch.scoreA || "0"}
+                                {matchAnalysis?.activeScoreA ?? 0}
+                              </span>
+                              <span className="block text-[11px] font-mono text-cyan-500/80 uppercase tracking-widest mt-1">
+                                Game {matchAnalysis?.activeGameNumber || 1} Points
                               </span>
                             </div>
 
                             {/* BIG TOUCH POINT BUTTON */}
                             <button
                               onClick={() => handleAction("SCORE", { pointTo: "PLAYER_A" })}
-                              disabled={actionPending || activeMatch.status === "PAUSED"}
+                              disabled={actionPending || activeMatch.status === "PAUSED" || matchAnalysis?.isMatchFinished}
                               className="w-full py-4 sm:py-5 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 disabled:opacity-40 text-white font-mono font-black text-base sm:text-lg rounded-lg shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.98] select-none"
                             >
                               <Plus className="w-5 h-5 stroke-[3]" />
@@ -741,17 +988,20 @@ export default function MatchOfficialWorkspace() {
                               </h2>
                             </div>
 
-                            {/* GIANT SCORE */}
+                            {/* GIANT SCORE (ACTIVE GAME) */}
                             <div className="py-6 sm:py-8 text-center">
                               <span className="text-7xl sm:text-8xl font-black font-mono text-orange-400 tracking-tight drop-shadow-[0_0_20px_rgba(255,90,22,0.4)]">
-                                {activeMatch.scoreB || "0"}
+                                {matchAnalysis?.activeScoreB ?? 0}
+                              </span>
+                              <span className="block text-[11px] font-mono text-orange-500/80 uppercase tracking-widest mt-1">
+                                Game {matchAnalysis?.activeGameNumber || 1} Points
                               </span>
                             </div>
 
                             {/* BIG TOUCH POINT BUTTON */}
                             <button
                               onClick={() => handleAction("SCORE", { pointTo: "PLAYER_B" })}
-                              disabled={actionPending || activeMatch.status === "PAUSED"}
+                              disabled={actionPending || activeMatch.status === "PAUSED" || matchAnalysis?.isMatchFinished}
                               className="w-full py-4 sm:py-5 bg-[#FF5A16] hover:bg-[#e04f14] active:bg-[#c9420e] disabled:opacity-40 text-white font-mono font-black text-base sm:text-lg rounded-lg shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.98] select-none"
                             >
                               <Plus className="w-5 h-5 stroke-[3]" />
@@ -807,10 +1057,20 @@ export default function MatchOfficialWorkspace() {
                           {/* Right: Complete Match */}
                           <button
                             onClick={() => {
-                              // Pre-select leader as winner
-                              const a = parseInt(activeMatch.scoreA || "0", 10);
-                              const b = parseInt(activeMatch.scoreB || "0", 10);
-                              setSelectedWinner(a >= b ? "PLAYER_A" : "PLAYER_B");
+                              // Pre-select leader or confirmed winner
+                              if (matchAnalysis?.matchWinner) {
+                                setSelectedWinner(matchAnalysis.matchWinner);
+                              } else {
+                                const wonA = matchAnalysis?.gamesWonA || 0;
+                                const wonB = matchAnalysis?.gamesWonB || 0;
+                                if (wonA !== wonB) {
+                                  setSelectedWinner(wonA > wonB ? "PLAYER_A" : "PLAYER_B");
+                                } else {
+                                  const a = matchAnalysis?.activeScoreA || 0;
+                                  const b = matchAnalysis?.activeScoreB || 0;
+                                  setSelectedWinner(a >= b ? "PLAYER_A" : "PLAYER_B");
+                                }
+                              }
                               setCompleteModalOpen(true);
                             }}
                             disabled={actionPending}
@@ -920,7 +1180,7 @@ export default function MatchOfficialWorkspace() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold font-mono text-white uppercase tracking-wider flex items-center gap-2">
                     <Clock className="w-4 h-4 text-cyan-400" />
-                    MY UPCOMING MATCH ASSIGNMENTS ({upcomingMatches.length})
+                    {effectiveCourtName ? `${effectiveCourtName.toUpperCase()} UPCOMING MATCH ASSIGNMENTS` : "MY UPCOMING MATCH ASSIGNMENTS"} ({upcomingMatches.length})
                   </h2>
                 </div>
 
@@ -988,7 +1248,7 @@ export default function MatchOfficialWorkspace() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold font-mono text-white uppercase tracking-wider flex items-center gap-2">
                     <Trophy className="w-4 h-4 text-emerald-400" />
-                    MY COMPLETED MATCHES ({completedMatches.length})
+                    {effectiveCourtName ? `${effectiveCourtName.toUpperCase()} COMPLETED MATCHES` : "MY COMPLETED MATCHES"} ({completedMatches.length})
                   </h2>
                 </div>
 

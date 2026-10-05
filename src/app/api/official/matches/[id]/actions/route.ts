@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
+import { UserContext, resolveOfficialCourt } from "@/lib/rbac/service";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { UserContext } from "@/lib/rbac/service";
 import { ROLES } from "@/lib/rbac/roles";
 import { logAuditEvent } from "@/lib/rbac/audit";
-import { getScoringConfigForCategory, validateScoreIncrement } from "@/lib/scoring/rules";
+import {
+  getScoringConfigForCategory,
+  validateScoreIncrement,
+  analyzeMatchSets,
+  applyPointToMatch,
+  undoPointInMatch,
+} from "@/lib/scoring/rules";
 import { resolveKnockoutDependencies } from "@/lib/matches/lifecycle";
 
 // In-memory idempotency deduplication window (500ms) to prevent accidental double-taps
@@ -52,10 +58,17 @@ export const POST = withAuth(
       }
 
       // 2. RESOURCE-LEVEL AUTHORIZATION
-      // Match official MUST be assigned to this match (or hold Super/Tournament Admin clearance)
+      // Match official MUST be assigned to this court/match (or hold Super/Tournament Admin clearance)
       const isSuper =
         context.roles.includes(ROLES.SUPER_ADMIN) ||
         context.roles.includes(ROLES.TOURNAMENT_ADMIN);
+
+      const assignedCourt = resolveOfficialCourt(context.user);
+      const isCourtMatch = Boolean(
+        assignedCourt &&
+        match.court &&
+        match.court.trim().toLowerCase() === assignedCourt.trim().toLowerCase()
+      );
 
       const isAssigned =
         match.assignedOfficialId &&
@@ -63,28 +76,55 @@ export const POST = withAuth(
           match.assignedOfficialId === context.user.officialId ||
           match.assignedOfficialId === context.user.email);
 
-      if (!isSuper && !isAssigned) {
-        await logAuditEvent({
-          actorUserId: context.user.id,
-          actorEmail: context.user.email,
-          action: "ACCESS_DENIED",
-          resourceType: "match",
-          resourceId: id,
-          metadata: {
-            reason: "Match official attempted action on unassigned match",
-            matchNumber: match.matchNumber,
-            assignedOfficialId: match.assignedOfficialId,
-          },
-        });
+      if (!isSuper) {
+        if (assignedCourt && match.court && !isCourtMatch) {
+          await logAuditEvent({
+            actorUserId: context.user.id,
+            actorEmail: context.user.email,
+            action: "ACCESS_DENIED",
+            resourceType: "match",
+            resourceId: id,
+            metadata: {
+              reason: `Umpire for ${assignedCourt} attempted action on court ${match.court}`,
+              matchNumber: match.matchNumber,
+              court: match.court,
+              assignedCourt,
+            },
+          });
 
-        return NextResponse.json(
-          {
-            success: false,
-            code: "NOT_ASSIGNED",
-            error: `403 Forbidden: You are not assigned to officiate match ${match.matchNumber}. Access denied.`,
-          },
-          { status: 403 }
-        );
+          return NextResponse.json(
+            {
+              success: false,
+              code: "COURT_MISMATCH",
+              error: `403 Forbidden: You are assigned exclusively to ${assignedCourt} and cannot officiate match ${match.matchNumber} on ${match.court}. Access denied.`,
+            },
+            { status: 403 }
+          );
+        }
+
+        if (!assignedCourt && !isAssigned) {
+          await logAuditEvent({
+            actorUserId: context.user.id,
+            actorEmail: context.user.email,
+            action: "ACCESS_DENIED",
+            resourceType: "match",
+            resourceId: id,
+            metadata: {
+              reason: "Match official attempted action on unassigned match",
+              matchNumber: match.matchNumber,
+              assignedOfficialId: match.assignedOfficialId,
+            },
+          });
+
+          return NextResponse.json(
+            {
+              success: false,
+              code: "NOT_ASSIGNED",
+              error: `403 Forbidden: You are not assigned to officiate match ${match.matchNumber}. Access denied.`,
+            },
+            { status: 403 }
+          );
+        }
       }
 
       // 3. ACTION: START
@@ -136,12 +176,16 @@ export const POST = withAuth(
             });
           }
 
+          const scoringConfig = getScoringConfigForCategory(match.category);
+          const currentAnalysis = analyzeMatchSets(match.scoreA, match.scoreB, scoringConfig);
+
           await tx.matchEvent.create({
             data: {
               matchId: id,
               pointTo: "PLAYER_A",
-              scoreA: parseInt(match.scoreA || "0", 10),
-              scoreB: parseInt(match.scoreB || "0", 10),
+              scoreA: currentAnalysis.activeScoreA,
+              scoreB: currentAnalysis.activeScoreB,
+              setNumber: currentAnalysis.activeGameNumber,
               eventType: "START",
               officialId: context.user.officialId || context.user.id,
             },
@@ -196,13 +240,11 @@ export const POST = withAuth(
         }
 
         const scoringConfig = getScoringConfigForCategory(match.category);
-        const currentA = parseInt(match.scoreA || "0", 10);
-        const currentB = parseInt(match.scoreB || "0", 10);
+        const result = applyPointToMatch(match.scoreA, match.scoreB, pointTo, scoringConfig);
 
-        const validation = validateScoreIncrement(currentA, currentB, pointTo, scoringConfig);
-        if (!validation.valid) {
+        if (!result.valid) {
           return NextResponse.json(
-            { success: false, error: validation.error || "Invalid score transition." },
+            { success: false, error: result.error || "Invalid score transition." },
             { status: 400 }
           );
         }
@@ -211,8 +253,8 @@ export const POST = withAuth(
           const m = await tx.match.update({
             where: { id },
             data: {
-              scoreA: String(validation.newScoreA),
-              scoreB: String(validation.newScoreB),
+              scoreA: result.newScoreAStr,
+              scoreB: result.newScoreBStr,
             },
           });
 
@@ -220,9 +262,10 @@ export const POST = withAuth(
             data: {
               matchId: id,
               pointTo,
-              scoreA: validation.newScoreA,
-              scoreB: validation.newScoreB,
-              eventType: "POINT",
+              scoreA: result.newActiveScoreA,
+              scoreB: result.newActiveScoreB,
+              setNumber: result.currentSetNumber,
+              eventType: result.matchJustWon ? "MATCH_WON" : result.gameJustWon ? "SET_WON" : "POINT",
               officialId: context.user.officialId || context.user.id,
             },
           });
@@ -239,17 +282,38 @@ export const POST = withAuth(
           metadata: {
             matchNumber: match.matchNumber,
             pointTo,
-            previousA: currentA,
-            previousB: currentB,
-            scoreA: validation.newScoreA,
-            scoreB: validation.newScoreB,
+            previousA: match.scoreA,
+            previousB: match.scoreB,
+            scoreA: result.newScoreAStr,
+            scoreB: result.newScoreBStr,
+            activeScoreA: result.newActiveScoreA,
+            activeScoreB: result.newActiveScoreB,
+            setNumber: result.currentSetNumber,
+            gameJustWon: result.gameJustWon,
+            matchJustWon: result.matchJustWon,
           },
         });
 
+        const playerName = pointTo === "PLAYER_A" ? match.playerA : match.playerB;
+        const message = result.matchJustWon
+          ? `MATCH WON! ${playerName} won the match! Final score: ${result.newScoreAStr} - ${result.newScoreBStr}.`
+          : result.gameJustWon
+          ? `GAME WON! ${playerName} won Game ${result.currentSetNumber} (${result.newActiveScoreA} - ${result.newActiveScoreB}). Starting Game ${result.currentSetNumber + 1}.`
+          : `Point awarded to ${playerName}. Game ${result.currentSetNumber}: ${result.newActiveScoreA} - ${result.newActiveScoreB}.`;
+
         return NextResponse.json({
           success: true,
-          message: `Point awarded to ${pointTo}. New score: ${validation.newScoreA} - ${validation.newScoreB}.`,
+          message,
           data: updated,
+          scoring: {
+            scoreA: result.newScoreAStr,
+            scoreB: result.newScoreBStr,
+            activeScoreA: result.newActiveScoreA,
+            activeScoreB: result.newActiveScoreB,
+            currentSetNumber: result.currentSetNumber,
+            gameJustWon: result.gameJustWon,
+            matchJustWon: result.matchJustWon,
+          },
         });
       }
 
@@ -262,50 +326,51 @@ export const POST = withAuth(
           );
         }
 
-        // Find the most recent POINT event for this match
+        // Find the most recent score event for this match
         const lastPointEvent = await prisma.matchEvent.findFirst({
           where: {
             matchId: id,
-            eventType: "POINT",
+            eventType: { in: ["POINT", "SET_WON", "MATCH_WON"] },
           },
           orderBy: { timestamp: "desc" },
         });
 
-        if (!lastPointEvent) {
+        const scoringConfig = getScoringConfigForCategory(match.category);
+        const lastPointTo =
+          lastPointEvent?.pointTo === "PLAYER_A" || lastPointEvent?.pointTo === "PLAYER_B"
+            ? (lastPointEvent.pointTo as "PLAYER_A" | "PLAYER_B")
+            : null;
+
+        const result = undoPointInMatch(match.scoreA, match.scoreB, lastPointTo, scoringConfig);
+        if (!result.valid) {
           return NextResponse.json(
-            { success: false, error: "No score events found to undo." },
+            { success: false, error: result.error || "Cannot undo score." },
             { status: 400 }
           );
-        }
-
-        // Revert score by subtracting 1 from the player who received the last point
-        const currentA = parseInt(match.scoreA || "0", 10);
-        const currentB = parseInt(match.scoreB || "0", 10);
-
-        let revertedA = currentA;
-        let revertedB = currentB;
-
-        if (lastPointEvent.pointTo === "PLAYER_A") {
-          revertedA = Math.max(0, currentA - 1);
-        } else {
-          revertedB = Math.max(0, currentB - 1);
         }
 
         const updated = await prisma.$transaction(async (tx) => {
           const m = await tx.match.update({
             where: { id },
             data: {
-              scoreA: String(revertedA),
-              scoreB: String(revertedB),
+              scoreA: result.newScoreAStr,
+              scoreB: result.newScoreBStr,
             },
           });
+
+          if (lastPointEvent) {
+            await tx.matchEvent.delete({
+              where: { id: lastPointEvent.id },
+            }).catch(() => {});
+          }
 
           await tx.matchEvent.create({
             data: {
               matchId: id,
-              pointTo: lastPointEvent.pointTo,
-              scoreA: revertedA,
-              scoreB: revertedB,
+              pointTo: result.undonePlayer,
+              scoreA: result.newActiveScoreA,
+              scoreB: result.newActiveScoreB,
+              setNumber: result.currentSetNumber,
               eventType: "UNDO",
               officialId: context.user.officialId || context.user.id,
             },
@@ -322,15 +387,18 @@ export const POST = withAuth(
           resourceId: id,
           metadata: {
             matchNumber: match.matchNumber,
-            undonePointTo: lastPointEvent.pointTo,
-            revertedScoreA: revertedA,
-            revertedScoreB: revertedB,
+            undonePointTo: result.undonePlayer,
+            scoreA: result.newScoreAStr,
+            scoreB: result.newScoreBStr,
+            activeScoreA: result.newActiveScoreA,
+            activeScoreB: result.newActiveScoreB,
+            currentSet: result.currentSetNumber,
           },
         });
 
         return NextResponse.json({
           success: true,
-          message: `Last point undone. Score reverted to ${revertedA} - ${revertedB}.`,
+          message: `Last point undone. Current score: ${result.newScoreAStr} - ${result.newScoreBStr}.`,
           data: updated,
         });
       }
@@ -346,6 +414,9 @@ export const POST = withAuth(
 
         const pauseReason = reason?.trim() || "Operational Pause";
 
+        const scoringConfig = getScoringConfigForCategory(match.category);
+        const analysis = analyzeMatchSets(match.scoreA, match.scoreB, scoringConfig);
+
         const updated = await prisma.$transaction(async (tx) => {
           const m = await tx.match.update({
             where: { id },
@@ -360,8 +431,9 @@ export const POST = withAuth(
             data: {
               matchId: id,
               pointTo: "PLAYER_A",
-              scoreA: parseInt(match.scoreA || "0", 10),
-              scoreB: parseInt(match.scoreB || "0", 10),
+              scoreA: analysis.activeScoreA,
+              scoreB: analysis.activeScoreB,
+              setNumber: analysis.activeGameNumber,
               eventType: "PAUSE",
               officialId: context.user.officialId || context.user.id,
             },
@@ -399,6 +471,9 @@ export const POST = withAuth(
           );
         }
 
+        const scoringConfig = getScoringConfigForCategory(match.category);
+        const analysis = analyzeMatchSets(match.scoreA, match.scoreB, scoringConfig);
+
         const updated = await prisma.$transaction(async (tx) => {
           const m = await tx.match.update({
             where: { id },
@@ -413,8 +488,9 @@ export const POST = withAuth(
             data: {
               matchId: id,
               pointTo: "PLAYER_A",
-              scoreA: parseInt(match.scoreA || "0", 10),
-              scoreB: parseInt(match.scoreB || "0", 10),
+              scoreA: analysis.activeScoreA,
+              scoreB: analysis.activeScoreB,
+              setNumber: analysis.activeGameNumber,
               eventType: "RESUME",
               officialId: context.user.officialId || context.user.id,
             },
@@ -445,13 +521,16 @@ export const POST = withAuth(
       if (action === "REPORT_ISSUE") {
         const cat = issueCategory?.trim() || "OTHER";
         const desc = description?.trim() || "Operational Issue";
+        const scoringConfig = getScoringConfigForCategory(match.category);
+        const analysis = analyzeMatchSets(match.scoreA, match.scoreB, scoringConfig);
 
         await prisma.matchEvent.create({
           data: {
             matchId: id,
             pointTo: "PLAYER_A",
-            scoreA: parseInt(match.scoreA || "0", 10),
-            scoreB: parseInt(match.scoreB || "0", 10),
+            scoreA: analysis.activeScoreA,
+            scoreB: analysis.activeScoreB,
+            setNumber: analysis.activeGameNumber,
             eventType: "ISSUE_REPORTED",
             officialId: context.user.officialId || context.user.id,
           },
@@ -493,6 +572,8 @@ export const POST = withAuth(
           );
         }
 
+        const scoringConfig = getScoringConfigForCategory(match.category);
+        const analysis = analyzeMatchSets(match.scoreA, match.scoreB, scoringConfig);
         const winnerName = winner === "PLAYER_A" ? match.playerA : match.playerB;
 
         const updated = await prisma.$transaction(async (tx) => {
@@ -528,8 +609,9 @@ export const POST = withAuth(
             data: {
               matchId: id,
               pointTo: winner,
-              scoreA: parseInt(match.scoreA || "0", 10),
-              scoreB: parseInt(match.scoreB || "0", 10),
+              scoreA: analysis.activeScoreA,
+              scoreB: analysis.activeScoreB,
+              setNumber: analysis.activeGameNumber,
               eventType: "MATCH_WON",
               officialId: context.user.officialId || context.user.id,
             },
