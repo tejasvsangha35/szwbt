@@ -64,7 +64,7 @@ All SPOC accounts authenticate via [`/login`](http://localhost:3000/login) with 
 | **AP** | Utkarsh Gupta | `utkarshguptaspoc@szwbt2026.edu` | `szwbt2026pass` | 7760618549 | **AP-01** (Acharya Nagarjuna), **AP-02** (Adikavi Nannaya), **AP-03** (Andhra Univ), **AP-04** (Dr. NTR Health Sciences) |
 | **AP** | Ashrita Angadi | `ashritaangadispoc@szwbt2026.edu` | `szwbt2026pass` | 6366955515 | **AP-05** (GITAM), **AP-06** (JNTU Ananthpura), **AP-07** (JNTU Gurujada), **AP-08** (JNTU Kakinada) |
 | **AP** | Nitisha M N | `nitishamnspoc@szwbt2026.edu` | `szwbt2026pass` | 7892923187 | **AP-09** (KLEF), **AP-10** (Krishna Univ), **AP-11** (Mohan Babu), **AP-12** (Rayalaseema) |
-| **AP** | Khushi | `khushispoc@szwbt2026.edu` | `szwbt2026pass` | *Not Provided* | **AP-13** (Siddharth Academy), **AP-14** (Sri Krishnadevaraya), **AP-15** (Sri Venkateshwar), **AP-16** (The Apollo Univ) |
+| **AP** | Khushi | `khushispoc@szwbt2026.edu` | `szwbt2026pass` | 9449197058 | **AP-13** (Siddharth Academy), **AP-14** (Sri Krishnadevaraya), **AP-15** (Sri Venkateshwar), **AP-16** (The Apollo Univ) |
 | **AP** | Pooja P | `poojapspoc@szwbt2026.edu` | `szwbt2026pass` | 8660932088 | **AP-17** (Vighnan's), **AP-18** (Vikram Simhapuri), **AP-19** (VIT-AP), **AP-20** (Yogi Veman) |
 | **KA** | Arpita Patil | `arpitapatilspoc@szwbt2026.edu` | `szwbt2026pass` | 7019416947 | **KA-01** (Valmiki), **KA-02** (Bagalkot), **KA-03** (Bangalore Univ), **KA-04** (Bengaluru North), **KA-05** (Central Univ Karnataka) |
 | **KA** | Bhumika M | `bhumikamspoc@szwbt2026.edu` | `szwbt2026pass` | 6360433574 | **KA-06** (Chamarajnagara), **KA-07** (Chanakya), **KA-08** (Christ Univ), **KA-09** (Davangere) |

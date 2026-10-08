@@ -28,7 +28,7 @@ async function runTests() {
     { email: "utkarshguptaspoc@szwbt2026.edu", name: "Utkarsh Gupta", phone: "7760618549", expectedCount: 4 },
     { email: "ashritaangadispoc@szwbt2026.edu", name: "Ashrita Angadi", phone: "6366955515", expectedCount: 4 },
     { email: "nitishamnspoc@szwbt2026.edu", name: "Nitisha M N", phone: "7892923187", expectedCount: 4 },
-    { email: "khushispoc@szwbt2026.edu", name: "Khushi", phone: null, expectedCount: 4 },
+    { email: "khushispoc@szwbt2026.edu", name: "Khushi", phone: "9449197058", expectedCount: 4 },
     { email: "poojapspoc@szwbt2026.edu", name: "Pooja P", phone: "8660932088", expectedCount: 4 },
     { email: "arpitapatilspoc@szwbt2026.edu", name: "Arpita Patil", phone: "7019416947", expectedCount: 5 },
     { email: "bhumikamspoc@szwbt2026.edu", name: "Bhumika M", phone: "6360433574", expectedCount: 4 },

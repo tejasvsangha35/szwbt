@@ -26,7 +26,7 @@ export const OFFICIAL_SPOCS: OfficialSpocDefinition[] = [
   { name: "Utkarsh Gupta", email: "utkarshguptaspoc@szwbt2026.edu", phone: "7760618549" },
   { name: "Ashrita Angadi", email: "ashritaangadispoc@szwbt2026.edu", phone: "6366955515" },
   { name: "Nitisha M N", email: "nitishamnspoc@szwbt2026.edu", phone: "7892923187" },
-  { name: "Khushi", email: "khushispoc@szwbt2026.edu", phone: null },
+  { name: "Khushi", email: "khushispoc@szwbt2026.edu", phone: "9449197058" },
   { name: "Pooja P", email: "poojapspoc@szwbt2026.edu", phone: "8660932088" },
 
   // KA (9)
