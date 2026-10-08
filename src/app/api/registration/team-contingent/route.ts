@@ -287,38 +287,9 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Allocate Manager Bed if provided
-          let mgrBedInfo: any = null;
-          if (finalManagerBedId) {
-            const bed = await tx.bed.findUnique({
-              where: { id: finalManagerBedId },
-              include: { room: { include: { hostel: true, floor: true } } },
-            });
-
-            if (bed && bed.status === "AVAILABLE") {
-              await tx.accommodationAllocation.create({
-                data: {
-                  bedId: bed.id,
-                  participantId: mgrParticipant.id,
-                  teamId: team.id,
-                  allocatedBy: context.user.email,
-                  status: "ACTIVE",
-                },
-              });
-
-              await tx.bed.update({
-                where: { id: bed.id },
-                data: { status: "OCCUPIED" },
-              });
-
-              mgrBedInfo = {
-                bedNumber: bed.bedNumber,
-                roomNumber: bed.room.roomNumber,
-                hostel: bed.room.hostel.name,
-                floor: bed.room.floor?.name || bed.room.floorNumber || "Floor 01",
-              };
-            }
-          }
+          // Note: Room allotment is managed exclusively & manually in the Accommodation Dashboard.
+          // Registration does NOT allocate any rooms automatically or manually.
+          const mgrBedInfo: any = null;
 
           createdManager = {
             id: mgrParticipant.id,
@@ -439,38 +410,9 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Allocate Bed if provided
-          let bedInfo: any = null;
-          if (a.bedId) {
-            const bed = await tx.bed.findUnique({
-              where: { id: a.bedId },
-              include: { room: { include: { hostel: true, floor: true } } },
-            });
-
-            if (bed && bed.status === "AVAILABLE") {
-              await tx.accommodationAllocation.create({
-                data: {
-                  bedId: bed.id,
-                  participantId: participant.id,
-                  teamId: team.id,
-                  allocatedBy: context.user.email,
-                  status: "ACTIVE",
-                },
-              });
-
-              await tx.bed.update({
-                where: { id: bed.id },
-                data: { status: "OCCUPIED" },
-              });
-
-              bedInfo = {
-                bedNumber: bed.bedNumber,
-                roomNumber: bed.room.roomNumber,
-                hostel: bed.room.hostel.name,
-                floor: bed.room.floor?.name || bed.room.floorNumber || "Floor 01",
-              };
-            }
-          }
+          // Note: Room allotment is managed exclusively & manually in the Accommodation Dashboard.
+          // Registration does NOT allocate any rooms automatically or manually.
+          const bedInfo: any = null;
 
           createdParticipants.push({
             id: participant.id,

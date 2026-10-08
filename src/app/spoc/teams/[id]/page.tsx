@@ -436,7 +436,7 @@ export default function SpocTeamOverviewPage({ params }: PageProps) {
                     : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                 }`}
               >
-                STATUS: {accommodation.status || "NOT ALLOCATED"}
+                STATUS: {accommodation.status === "ALLOCATED" ? "ALLOCATED" : accommodation.status === "CHECKED-IN" ? "CHECKED-IN" : "PENDING ALLOTMENT"}
               </span>
             </div>
 
@@ -444,7 +444,7 @@ export default function SpocTeamOverviewPage({ params }: PageProps) {
               <div className="p-2.5 bg-[#07090E] border border-[#1E293B] rounded">
                 <span className="text-gray-400 text-[10px] block">Allocated Hostel:</span>
                 <span className="font-semibold text-white">
-                  {accommodation.summary?.hostelName || "Not Allocated"}
+                  {accommodation.summary?.hostelName || "Pending Allotment"}
                 </span>
               </div>
               <div className="p-2.5 bg-[#07090E] border border-[#1E293B] rounded">
@@ -452,7 +452,7 @@ export default function SpocTeamOverviewPage({ params }: PageProps) {
                 <span className="font-semibold text-white">
                   {accommodation.summary?.roomNumber
                     ? `Room ${accommodation.summary.roomNumber}`
-                    : "Pending Allocation"}
+                    : "Pending Allotment"}
                 </span>
               </div>
               <div className="p-2.5 bg-[#07090E] border border-[#1E293B] rounded">

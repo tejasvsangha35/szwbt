@@ -1180,10 +1180,10 @@ function AccommodationAdminContent() {
                           className={`font-pixel text-[8px] px-2 py-0.5 rounded border ${
                             member.isAllocated
                               ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                              : "bg-amber-100 text-amber-800 border-amber-300"
+                              : "bg-amber-100 text-amber-800 border-amber-300 font-bold"
                           }`}
                         >
-                          {member.isAllocated ? "● ALLOCATED" : "○ UNALLOCATED"}
+                          {member.isAllocated ? "● ALLOCATED" : "⏳ PENDING ALLOTMENT"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500 mt-1">
@@ -1831,24 +1831,29 @@ function AccommodationAdminContent() {
 
                       <div className="shrink-0">
                         {person.isAllocated ? (
-                          <span className="font-pixel text-[9px] text-emerald-700 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded">
-                            ALLOCATED
+                          <span className="font-pixel text-[9px] text-emerald-700 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded font-bold">
+                            ✓ ALLOCATED
                           </span>
                         ) : canAllocate ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsFindPersonOpen(false);
-                              setSelectedHostelId(person.hostelEligible as any);
-                              showToast(`Selected ${person.name}. Please select an available bed.`, "info");
-                            }}
-                            className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#d94e16] text-white rounded-lg font-pixel text-[9px] font-bold cursor-pointer shadow-xs transition-colors"
-                          >
-                            ALLOCATE BED
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <span className="font-pixel text-[8px] text-amber-800 px-2 py-1 bg-amber-50 border border-amber-300 rounded font-bold">
+                              ⏳ PENDING ALLOTMENT
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsFindPersonOpen(false);
+                                setSelectedHostelId(person.hostelEligible as any);
+                                showToast(`Selected ${person.name}. Please select an available bed in ${person.hostelEligible} Hostel.`, "info");
+                              }}
+                              className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#d94e16] text-white rounded-lg font-pixel text-[9px] font-bold cursor-pointer shadow-xs transition-colors"
+                            >
+                              ALLOCATE BED
+                            </button>
+                          </div>
                         ) : (
-                          <span className="font-pixel text-[9px] text-slate-500 px-2 py-1 bg-slate-100 border border-slate-200 rounded font-medium">
-                            DESK ASSIGNMENT ONLY
+                          <span className="font-pixel text-[9px] text-amber-800 px-2 py-1 bg-amber-50 border border-amber-300 rounded font-bold">
+                            PENDING ALLOTMENT
                           </span>
                         )}
                       </div>
@@ -1918,8 +1923,10 @@ function AccommodationAdminContent() {
                         <p className="font-mono text-[10px] text-slate-500 mt-0.5">
                           {t.institution} • {t.state}
                         </p>
-                        <p className="font-pixel text-[9px] text-amber-700 mt-1 font-semibold">
-                          ALLOCATION: {t.allocatedCount} / {t.totalMembers} ALLOCATED
+                        <p className={`font-pixel text-[9px] mt-1 font-semibold ${t.allocatedCount === t.totalMembers && t.totalMembers > 0 ? "text-emerald-700" : "text-amber-700"}`}>
+                          {t.allocatedCount === t.totalMembers && t.totalMembers > 0
+                            ? `✓ ALLOCATED: ${t.allocatedCount} / ${t.totalMembers}`
+                            : `⏳ PENDING ALLOTMENT: ${t.allocatedCount} / ${t.totalMembers} ALLOCATED`}
                         </p>
                       </div>
 
@@ -2008,6 +2015,9 @@ function AccommodationAdminContent() {
                             </span>
                             <span className="font-pixel text-[8px] px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-200 font-medium">
                               {person.role}
+                            </span>
+                            <span className="font-pixel text-[8px] px-2 py-0.5 rounded border bg-amber-100 text-amber-800 border-amber-300 font-bold">
+                              ⏳ PENDING ALLOTMENT
                             </span>
                             <span className="font-mono text-[9px] text-slate-500">
                               ({person.gender})

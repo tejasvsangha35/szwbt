@@ -8,7 +8,7 @@ import {
   ArrivalStatus,
   UniversityArrival,
   OperationalAlert,
-} from "@/lib/transport/arrivals";
+} from "@/lib/transport/types";
 import {
   MapPin,
   Clock,
@@ -45,7 +45,8 @@ import {
 
 // Official Tournament Dates
 const TOURNAMENT_DATES = [
-  { value: "2026-10-17", label: "17 Oct 2026 (Pre-Arrivals)" },
+  { value: "2026-10-16", label: "16 Oct 2026 (Early Team Arrivals)" },
+  { value: "2026-10-17", label: "17 Oct 2026 (Peak Pre-Arrivals Day)" },
   { value: "2026-10-18", label: "18 Oct 2026 (Primary Arrival Day)" },
   { value: "2026-10-19", label: "19 Oct 2026 (Inauguration Day)" },
   { value: "2026-10-20", label: "20 Oct 2026 (Tournament Day 2)" },
@@ -58,8 +59,8 @@ export default function UniversityArrivalManagementPage() {
   // Navigation & View Tab
   const [activeNav, setActiveNav] = useState<"dashboard" | "arrivals" | "issues" | "settings">("dashboard");
 
-  // Filter States (Default to primary arrival day 2026-10-18)
-  const [selectedDate, setSelectedDate] = useState<string>("2026-10-18");
+  // Filter States (Default to peak arrival day 2026-10-17)
+  const [selectedDate, setSelectedDate] = useState<string>("2026-10-17");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedVenue, setSelectedVenue] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");

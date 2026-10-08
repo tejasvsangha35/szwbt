@@ -4,7 +4,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function createPrismaClient() {
+function createPrismaClient(): PrismaClient {
+  if (typeof window !== "undefined") {
+    return {} as PrismaClient;
+  }
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
@@ -12,6 +15,7 @@ function createPrismaClient() {
 
 // Invalidate stale cached instance if new models like spocTeamAssignment or bracketSlotAssignment are missing
 if (
+  typeof window === "undefined" &&
   globalForPrisma.prisma &&
   (!(globalForPrisma.prisma as any).bracketSlotAssignment || !(globalForPrisma.prisma as any).spocTeamAssignment)
 ) {
@@ -21,10 +25,15 @@ if (
   globalForPrisma.prisma = undefined;
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const prisma: PrismaClient =
+  typeof window !== "undefined"
+    ? ({} as PrismaClient)
+    : (globalForPrisma.prisma ?? createPrismaClient());
 
-console.log("[PRISMA INIT] spocTeamAssignment exists?", Boolean((prisma as any).spocTeamAssignment));
+if (typeof window === "undefined") {
+  console.log("[PRISMA INIT] spocTeamAssignment exists?", Boolean((prisma as any).spocTeamAssignment));
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = prisma;
+  }
 }

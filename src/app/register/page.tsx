@@ -1112,7 +1112,7 @@ export default function RegistrationDeskPage() {
         managerPhone: managerPhone.trim() || undefined,
         managerEmail: managerEmail.trim() || undefined,
         managerPhotoUrl: managerPhotoUrl || undefined,
-        managerBedId: wantAccommodation ? managerBedId : undefined,
+        managerBedId: undefined,
         managerPdf: managerPdfDataUrl ? {
           fileName: managerPdfName,
           fileSize: managerPdfSize,
@@ -1123,7 +1123,7 @@ export default function RegistrationDeskPage() {
           email: ath.email.trim() || undefined,
           mobile: ath.mobile.trim(),
           photoUrl: ath.photoUrl,
-          bedId: wantAccommodation ? ath.bedId : undefined,
+          bedId: undefined,
           pdfFileName: ath.pdfFileName,
           pdfFileSize: ath.pdfFileSize,
           pdfDataUrl: ath.pdfDataUrl,
@@ -1864,7 +1864,9 @@ export default function RegistrationDeskPage() {
                                     ? "bg-slate-100 text-slate-900 border border-slate-300"
                                     : "bg-amber-50 text-amber-800 border border-amber-300"
                                 }`}>
-                                  {liveMember.room !== "—" ? `${liveMember.hostel} (${liveMember.room})` : "NOT ALLOCATED"}
+                                  {liveMember.accommodationStatus === "ALLOCATED" && liveMember.room && liveMember.room !== "—" && liveMember.room !== "-" ? `${liveMember.hostel} (${liveMember.room})` : (
+                                    <span className="inline-flex items-center gap-1 font-black"><Clock className="w-2.5 h-2.5 text-amber-600" /> PENDING ALLOTMENT</span>
+                                  )}
                                 </span>
                               </td>
                               <td className="p-2.5">
@@ -2368,389 +2370,54 @@ export default function RegistrationDeskPage() {
                     </div>
                   </div>
 
-                  {/* SECTION 04: CONTINGENT ACCOMMODATION (5 ATHLETES IN SHALMALA + MANAGER IN VINDHYA) */}
-                  <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  {/* SECTION 04: CONTINGENT ACCOMMODATION ALLOTMENT PROTOCOL */}
+                  <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border-2 border-amber-300 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-3">
                       <div className="flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded-lg bg-orange-50 border border-orange-200 text-[#FF5A16] font-rajdhani font-black text-xs flex items-center justify-center">04</span>
+                        <span className="w-6 h-6 rounded-lg bg-amber-500 text-white font-rajdhani font-black text-xs flex items-center justify-center">04</span>
                         <div>
-                          <h2 className="font-rajdhani text-base sm:text-lg text-slate-900 font-black uppercase tracking-wider">
-                            {selectedHostel === "VINDHYA"
-                              ? "TEAM MANAGER ACCOMMODATION (VINDHYA BOYS HOSTEL)"
-                              : "CONTINGENT ACCOMMODATION (5 BEDS SQUAD ALLOCATION)"}
+                          <h2 className="font-rajdhani text-base sm:text-lg text-slate-900 font-black uppercase tracking-wider flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-amber-600" />
+                            CONTINGENT ACCOMMODATION ALLOTMENT
                           </h2>
-                          <p className="text-[11px] text-slate-500 font-sans">
-                            {selectedHostel === "VINDHYA" ? (
-                              managerBedId ? (
-                                <span className="text-emerald-700 font-bold">
-                                  ✓ Bed {managerBedNumber} allocated in Room {managerRoomNumber || selectedRoom?.roomNumber} ({managerName.trim() || "Team Manager"})
-                                </span>
-                              ) : (
-                                <span className="text-amber-700 font-semibold">
-                                  No bed allocated for Team Manager &bull; Click an available bed below
-                                </span>
-                              )
-                            ) : (
-                              <span>
-                                {selectedBedsCount} of 5 Athletes Assigned Beds &bull; {selectedBedsCount === 5 ? "✓ Complete" : "Select beds below"}
-                              </span>
-                            )}
+                          <p className="text-xs text-amber-900 font-sans font-medium">
+                            Centralized Manual Allotment via Accommodation Dashboard &bull; Desk Policy
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        {selectedHostel === "VINDHYA" ? (
-                          <>
-                            {/* ALLOCATE MANAGER BED BUTTON */}
-                            <button
-                              type="button"
-                              onClick={handleAllocateManagerBed}
-                              className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded-xl text-xs font-rajdhani font-black uppercase flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" /> ALLOCATE MANAGER BED
-                            </button>
-
-                            {/* CLEAR MANAGER BED BUTTON */}
-                            <button
-                              type="button"
-                              onClick={handleClearManagerBed}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold uppercase flex items-center gap-1.5 border border-slate-300 cursor-pointer transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" /> CLEAR MANAGER BED
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {/* SELECT ALL 5 BEDS BUTTON */}
-                            <button
-                              type="button"
-                              onClick={handleSelectAllBeds}
-                              className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded-xl text-xs font-rajdhani font-black uppercase flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" /> SELECT ALL 5 BEDS
-                            </button>
-
-                            {/* CLEAR ALL BEDS BUTTON */}
-                            <button
-                              type="button"
-                              onClick={handleClearAllBeds}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold uppercase flex items-center gap-1.5 border border-slate-300 cursor-pointer transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" /> CLEAR ALL
-                            </button>
-                          </>
-                        )}
-
-                        {/* VIEW ALL ROOMS MODAL BUTTON */}
-                        <button
-                          type="button"
-                          onClick={() => setIsViewAllRoomsOpen(true)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-rajdhani font-bold flex items-center gap-1 border border-slate-300 cursor-pointer"
-                        >
-                          <Bed className="w-3.5 h-3.5 text-[#FF5A16]" /> VIEW ALL ROOMS
-                        </button>
-                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-rajdhani text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
+                        PENDING MANUAL ALLOTMENT
+                      </span>
                     </div>
 
-                    {/* Contingent Allocation Status Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-2.5 h-2.5 rounded-full ${selectedBedsCount === 5 ? "bg-emerald-500" : selectedBedsCount > 0 ? "bg-amber-500" : "bg-slate-300"}`} />
-                          <span className="font-rajdhani font-bold text-slate-700">SHALMALA (ATHLETES):</span>
-                          <span className="font-mono text-slate-900 font-bold">{selectedBedsCount}/5 Beds Assigned</span>
-                        </div>
-                        <span className="text-slate-300 hidden sm:inline">|</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-2.5 h-2.5 rounded-full ${managerBedId ? "bg-emerald-500" : "bg-amber-500"}`} />
-                          <span className="font-rajdhani font-bold text-slate-700">VINDHYA (MANAGER):</span>
-                          <span className="font-mono text-slate-900 font-bold">
-                            {managerBedId ? `${managerRoomNumber || "Room"} - ${managerBedNumber}` : "Not Allocated"}
-                          </span>
+                    <div className="bg-white/90 backdrop-blur-xs rounded-xl p-4 border border-amber-200 text-xs text-slate-700 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div className="space-y-1.5">
+                          <p className="font-bold text-slate-900 text-[13px]">
+                            Room allotment is completely manual and handled exclusively in the Accommodation Dashboard.
+                          </p>
+                          <p className="text-slate-600 leading-relaxed text-xs">
+                            In strict compliance with tournament guidelines, <strong>no rooms or beds are allotted automatically</strong> during team registration. All athletes and team managers are registered with a <span className="inline-flex items-center gap-1 font-rajdhani font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[10px]"><Clock className="w-2.5 h-2.5" /> PENDING ALLOTMENT</span> status badge. The Accommodation In-Charge will manually allocate rooms in <strong>Shalmala Hostel</strong> (Female Athletes) and <strong>Vindhya Hostel</strong> (Team Managers) from the Accommodation Control Desk.
+                          </p>
                         </div>
                       </div>
 
-                      <div className="text-[11px] font-sans text-slate-500">
-                        Active Filter: <span className="font-bold text-slate-800">{selectedHostel === "SHALMALA" ? "Shalmala (Female Athletes)" : "Vindhya (Male Manager)"}</span>
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-amber-100 text-[11px]">
+                        <div className="flex items-center gap-4 text-slate-600 font-medium">
+                          <span>&bull; Female Athletes: <strong>Shalmala Hostel</strong></span>
+                          <span>&bull; Team Managers: <strong>Vindhya Boys Hostel</strong></span>
+                        </div>
+                        <Link
+                          href="/admin/accommodation"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white rounded-lg font-rajdhani font-bold text-xs uppercase transition-colors shadow-2xs"
+                        >
+                          OPEN ACCOMMODATION DASHBOARD <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
                       </div>
                     </div>
-
-                    {/* Hostel, Floor & Room Dropdowns */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {/* Hostel */}
-                      <div>
-                        <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-                          HOSTEL
-                        </label>
-                        <select
-                          value={selectedHostel}
-                          onChange={(e) => {
-                            setSelectedHostel(e.target.value);
-                            setSelectedFloor("");
-                          }}
-                          className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-[#FF5A16] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
-                        >
-                          <option value="SHALMALA">Shalmala Hostel (Female Athletes)</option>
-                          <option value="VINDHYA">Vindhya Boys Hostel (Male Managers)</option>
-                        </select>
-                      </div>
-
-                      {/* Floor */}
-                      <div>
-                        <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-                          FLOOR
-                        </label>
-                        <select
-                          value={selectedFloor}
-                          onChange={(e) => {
-                            setSelectedFloor(e.target.value);
-                          }}
-                          className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-[#FF5A16] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
-                        >
-                          <option value="">All Floors</option>
-                          {availableFloors.length > 0 ? (
-                            availableFloors.map((fl) => (
-                              <option key={fl} value={fl}>
-                                {fl.toUpperCase()}
-                              </option>
-                            ))
-                          ) : (
-                            <>
-                              <option value="GROUND FLOOR">GROUND FLOOR</option>
-                              <option value="FLOOR 01">FLOOR 01</option>
-                              <option value="FLOOR 02">FLOOR 02</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
-
-                      {/* Room Selection */}
-                      <div>
-                        <label className="block font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
-                          ROOM {selectedHostel === "VINDHYA" ? "(MANAGER ROOM)" : "(5-BED CONTINGENT ROOM)"}
-                        </label>
-                        <select
-                          value={selectedRoomId}
-                          onChange={(e) => setSelectedRoomId(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-300 focus:bg-white focus:border-[#FF5A16] text-slate-900 rounded-xl px-3.5 py-2.5 text-xs transition-colors focus:outline-none"
-                        >
-                          {filteredRooms.length === 0 ? (
-                            <option value="">No rooms available on this floor</option>
-                          ) : (
-                            filteredRooms.map((r) => {
-                              const availCount = r.beds?.filter((b) => b.status === "AVAILABLE").length || 0;
-                              const squadBedsInRoom = teamAthletes.filter((a) => r.beds?.some((b) => b.id === a.bedId)).length;
-                              const isManagerInRoom = selectedHostel === "VINDHYA" && managerRoomId === r.id;
-                              const isSquadInRoom = selectedHostel === "SHALMALA" && squadBedsInRoom > 0;
-
-                              return (
-                                <option
-                                  key={r.id}
-                                  value={r.id}
-                                  disabled={availCount === 0 && !isSquadInRoom && !isManagerInRoom}
-                                >
-                                  {r.roomNumber} ({availCount}/{r.capacity || 5} Available Beds) — {r.floorNumber}
-                                  {isSquadInRoom ? ` (${squadBedsInRoom} Squad Assigned)` : ""}
-                                  {isManagerInRoom ? " (★ Manager Allocated)" : ""}
-                                </option>
-                              );
-                            })
-                          )}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Cross-room notice for Manager when on Vindhya */}
-                    {selectedHostel === "VINDHYA" && managerBedId && managerRoomNumber && selectedRoom && managerRoomNumber !== selectedRoom.roomNumber && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between">
-                        <span>
-                          Manager currently allocated to <strong>{managerBedNumber}</strong> in <strong>Room {managerRoomNumber}</strong> ({managerFloor}).
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const found = rooms.find((r) => r.id === managerRoomId);
-                            if (found) {
-                              setSelectedFloor(found.floorNumber);
-                              setSelectedRoomId(found.id);
-                            }
-                          }}
-                          className="text-[#FF5A16] underline font-bold ml-2 cursor-pointer"
-                        >
-                          Go to Room {managerRoomNumber}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* INTERACTIVE BED TOPOLOGY SELECTION GRID */}
-                    {selectedRoom && (
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-rajdhani font-black text-xs uppercase tracking-wider text-slate-900">
-                              {selectedHostel === "VINDHYA" ? "MANAGER ROOM" : "SQUAD ROOM"} {selectedRoom.roomNumber} &bull;{" "}
-                              {selectedHostel === "VINDHYA" ? "ALLOCATE 1 BED FOR MANAGER" : "INTERACTIVE BED SELECTION (CLICK TO TOGGLE)"}
-                            </span>
-                            <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full font-bold">
-                              {availableBedsInRoom.length} / {selectedRoom.capacity || 5} Beds Available
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {selectedHostel === "VINDHYA" ? (
-                              managerBedId && managerRoomId === selectedRoom.id ? (
-                                <button
-                                  type="button"
-                                  onClick={handleClearManagerBed}
-                                  className="text-[11px] font-rajdhani font-bold text-red-600 hover:underline cursor-pointer flex items-center gap-1"
-                                >
-                                  <X className="w-3.5 h-3.5" /> Clear Manager Bed
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={handleAllocateManagerBed}
-                                  className="text-[11px] font-rajdhani font-bold text-[#FF5A16] hover:underline cursor-pointer flex items-center gap-1"
-                                >
-                                  <CheckCircle className="w-3.5 h-3.5" /> Allocate First Bed to Manager
-                                </button>
-                              )
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={handleSelectAllBeds}
-                                className="text-[11px] font-rajdhani font-bold text-[#FF5A16] hover:underline cursor-pointer flex items-center gap-1"
-                              >
-                                <CheckCircle className="w-3.5 h-3.5" /> Select All ({selectedRoom.beds.filter(b => b.status === "AVAILABLE").length} Available)
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Visual Clickable Bed Cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                          {selectedRoom.beds.map((bed) => {
-                            const isAvailable = bed.status === "AVAILABLE";
-
-                            if (selectedHostel === "VINDHYA") {
-                              const isManagerAssigned = managerBedId === bed.id;
-                              const canSelect = isAvailable || isManagerAssigned;
-
-                              return (
-                                <button
-                                  key={bed.id}
-                                  type="button"
-                                  disabled={!canSelect}
-                                  onClick={() => handleToggleBedSelection(bed)}
-                                  className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer flex flex-col justify-between min-h-[92px] ${
-                                    isManagerAssigned
-                                      ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-2 ring-emerald-300/60"
-                                      : isAvailable
-                                        ? "bg-white border-slate-300 text-slate-800 hover:border-[#FF5A16] hover:bg-orange-50/50"
-                                        : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between w-full">
-                                    <span className="font-rajdhani font-black text-xs uppercase">{bed.bedNumber}</span>
-                                    {isManagerAssigned ? (
-                                      <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">✓</span>
-                                    ) : isAvailable ? (
-                                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    ) : (
-                                      <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                                    )}
-                                  </div>
-
-                                  <div className="py-1">
-                                    {isManagerAssigned ? (
-                                      <div className="space-y-0.5 text-left">
-                                        <div className="text-[10px] font-rajdhani font-black text-emerald-800 truncate">
-                                          ★ Team Manager
-                                        </div>
-                                        <div className="text-[11px] font-bold text-slate-900 truncate" title={managerName || "Team Manager"}>
-                                          {managerName.trim() || "Team Manager"}
-                                        </div>
-                                      </div>
-                                    ) : isAvailable ? (
-                                      <div className="text-[10px] font-mono text-slate-500">
-                                        Available (Click to allocate)
-                                      </div>
-                                    ) : (
-                                      <div className="text-[10px] font-mono text-slate-400">
-                                        Occupied
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="text-[9px] font-mono font-bold text-slate-400 pt-1 border-t border-slate-200/60">
-                                    {isManagerAssigned ? "ALLOCATED" : isAvailable ? "ALLOCATE" : "UNAVAILABLE"}
-                                  </div>
-                                </button>
-                              );
-                            }
-
-                            // SHALMALA (ATHLETES)
-                            const assignedIndex = teamAthletes.findIndex((a) => a.bedId === bed.id);
-                            const isAssigned = assignedIndex !== -1;
-                            const assignedAthlete = isAssigned ? teamAthletes[assignedIndex] : null;
-
-                            return (
-                              <button
-                                key={bed.id}
-                                type="button"
-                                disabled={!isAvailable && !isAssigned}
-                                onClick={() => handleToggleBedSelection(bed)}
-                                className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer flex flex-col justify-between min-h-[92px] ${
-                                  isAssigned
-                                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-2 ring-emerald-300/60"
-                                    : isAvailable
-                                      ? "bg-white border-slate-300 text-slate-800 hover:border-[#FF5A16] hover:bg-orange-50/50"
-                                      : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between w-full">
-                                  <span className="font-rajdhani font-black text-xs uppercase">{bed.bedNumber}</span>
-                                  {isAssigned ? (
-                                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">✓</span>
-                                  ) : isAvailable ? (
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                  ) : (
-                                    <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                                  )}
-                                </div>
-
-                                <div className="py-1">
-                                  {isAssigned ? (
-                                    <div className="space-y-0.5 text-left">
-                                      <div className="text-[10px] font-rajdhani font-black text-emerald-800 truncate">
-                                        {assignedIndex === 0 ? "★ Captain" : `Athlete 0${assignedIndex + 1}`}
-                                      </div>
-                                      <div className="text-[11px] font-bold text-slate-900 truncate" title={assignedAthlete?.name}>
-                                        {assignedAthlete?.name || `Slot ${assignedIndex + 1}`}
-                                      </div>
-                                    </div>
-                                  ) : isAvailable ? (
-                                    <div className="text-[10px] font-mono text-slate-500">
-                                      Available (Click to assign)
-                                    </div>
-                                  ) : (
-                                    <div className="text-[10px] font-mono text-slate-400">
-                                      Occupied
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="text-[9px] font-mono font-bold text-slate-400 pt-1 border-t border-slate-200/60">
-                                  {isAssigned ? "SELECTED" : isAvailable ? "SELECT" : "UNAVAILABLE"}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
                   </div>
 
                 </div>
@@ -3229,7 +2896,13 @@ export default function RegistrationDeskPage() {
                                                   </td>
                                                   <td className="p-2 font-mono text-[10px] text-slate-600">{m.phone}</td>
                                                   <td className="p-2 text-[10px] text-slate-700">
-                                                    {m.room !== "—" ? `${m.hostel} (${m.room})` : "None"}
+                                                    {m.room && m.room !== "—" && m.room !== "-" && m.room !== "None" ? (
+                                                      <span className="font-semibold text-slate-800">${m.hostel} (${m.room})</span>
+                                                    ) : (
+                                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black font-rajdhani bg-amber-50 text-amber-800 border border-amber-300">
+                                                        <Clock className="w-2.5 h-2.5 text-amber-600" /> PENDING ALLOTMENT
+                                                      </span>
+                                                    )}
                                                   </td>
                                                   <td className="p-2">
                                                     <button
@@ -3399,7 +3072,13 @@ export default function RegistrationDeskPage() {
                                         </td>
                                         <td className="p-2 font-mono text-[10px] text-slate-600">{m.phone}</td>
                                         <td className="p-2 text-[10px] text-slate-700">
-                                          {m.room !== "—" ? `${m.hostel} (${m.room})` : "None"}
+                                          {m.room && m.room !== "—" && m.room !== "-" && m.room !== "None" ? (
+                                            <span className="font-semibold text-slate-800">${m.hostel} (${m.room})</span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black font-rajdhani bg-amber-50 text-amber-800 border border-amber-300">
+                                              <Clock className="w-2.5 h-2.5 text-amber-600" /> PENDING ALLOTMENT
+                                            </span>
+                                          )}
                                         </td>
                                         <td className="p-2">
                                           <button
@@ -3545,7 +3224,9 @@ export default function RegistrationDeskPage() {
                                   ? "bg-slate-100 text-slate-900 border border-slate-300"
                                   : "bg-amber-50 text-amber-800 border border-amber-300"
                               }`}>
-                                {p.room !== "—" ? `${p.hostel} (${p.room})` : "NOT ALLOCATED"}
+                                {p.accommodationStatus === "ALLOCATED" && p.room && p.room !== "—" && p.room !== "-" ? `${p.hostel} (${p.room})` : (
+                                  <span className="inline-flex items-center gap-1 font-black"><Clock className="w-2.5 h-2.5 text-amber-600" /> PENDING ALLOTMENT</span>
+                                )}
                               </span>
                             </td>
                             <td className="p-3 text-right">

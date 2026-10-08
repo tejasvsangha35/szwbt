@@ -1217,10 +1217,10 @@ function ParticipantDashboardContent() {
 
           {!accommodationData?.allocated ? (
             <div className="p-8 bg-pixel-dark border-2 border-pixel-gray-800 text-center space-y-3 font-sans">
-              <Home className="w-8 h-8 text-pixel-amber mx-auto" />
-              <h3 className="font-pixel text-sm text-pixel-cream">NOT ALLOCATED</h3>
+              <Home className="w-8 h-8 text-pixel-amber mx-auto animate-pulse" />
+              <h3 className="font-pixel text-sm text-pixel-amber">PENDING ALLOTMENT</h3>
               <p className="text-xs text-pixel-gray-400 max-w-md mx-auto">
-                Hostel room and bed allocation is currently pending warden desk verification. Please
+                Hostel room and bed allocation is currently pending manual allocation by the Accommodation Control Desk. Please
                 report to the Accommodation Desk at Shalmala Hostel upon contingent arrival.
               </p>
             </div>

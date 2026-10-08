@@ -1026,15 +1026,20 @@ export default function RegistrationAdminDashboard() {
                           </span>
                         </td>
                         <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2 py-0.5 font-pixel text-[9px] ${
-                              rec.status === "APPROVED"
-                                ? "bg-emerald-950/70 border border-emerald-500 text-emerald-300"
-                                : "bg-amber-950/70 border border-amber-500 text-amber-300"
-                            }`}
-                          >
-                            {rec.status === "APPROVED" ? "COMPLETED ✓" : rec.status}
-                          </span>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span
+                              className={`px-2 py-0.5 font-pixel text-[9px] ${
+                                rec.status === "APPROVED"
+                                  ? "bg-emerald-950/70 border border-emerald-500 text-emerald-300"
+                                  : "bg-amber-950/70 border border-amber-500 text-amber-300"
+                              }`}
+                            >
+                              {rec.status === "APPROVED" ? "COMPLETED ✓" : rec.status}
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-amber-950/60 border border-amber-500/50 text-amber-300 font-pixel text-[8px] flex items-center gap-1 shadow-2xs">
+                              <Clock className="w-2.5 h-2.5 text-amber-400" /> PENDING ALLOTMENT
+                            </span>
+                          </div>
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5 font-pixel text-[9px]">
@@ -2191,6 +2196,12 @@ export default function RegistrationAdminDashboard() {
                             <p className="font-sans text-xs text-[#91A0AE] max-w-md mx-auto">
                               Participant is now registered and eligible for Accommodation &amp; Daily Food Package assignment.
                             </p>
+                            <div className="pt-1">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-950/70 border border-amber-500/60 text-amber-300 font-pixel text-xs tracking-wider shadow-2xs">
+                                <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                                <span>ROOM ALLOTMENT: PENDING (MANUAL DESK)</span>
+                              </span>
+                            </div>
                           </div>
 
                           <div className="max-w-md mx-auto">
