@@ -55,9 +55,9 @@ export async function POST(req: NextRequest) {
       recipientCount = await prisma.user.count({
         where: { userRoles: { some: { role: { name: "TEAM_MANAGER" } } }, isActive: true },
       });
-    } else if (cleanAudience === "VOLUNTEERS") {
+    } else if (cleanAudience === "SPOCS") {
       recipientCount = await prisma.user.count({
-        where: { userRoles: { some: { role: { name: "VOLUNTEER" } } }, isActive: true },
+        where: { userRoles: { some: { role: { name: "SPOC" } } }, isActive: true },
       });
     } else if (cleanAudience === "MATCH_OFFICIALS") {
       recipientCount = await prisma.user.count({

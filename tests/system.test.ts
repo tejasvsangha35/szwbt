@@ -34,16 +34,16 @@ test("SYSTEM HEALTH & ADMINISTRATION CENTER TESTS (/admin/system)", async (t) =>
     permissions: Object.values(PERMISSIONS),
   });
 
-  const volunteerUser = await prisma.user.findFirst({
-    where: { email: "volunteer@szwbt2026.edu" },
+  const spocUser = await prisma.user.findFirst({
+    where: { email: "spoc@szwbt2026.edu" },
   });
-  assert(volunteerUser, "Volunteer user must exist");
+  assert(spocUser, "SPOC user must exist");
 
-  const volunteerToken = createSessionToken({
-    userId: volunteerUser.id,
-    email: volunteerUser.email,
-    roles: [ROLES.VOLUNTEER],
-    permissions: [PERMISSIONS.TRANSPORT_READ],
+  const spocToken = createSessionToken({
+    userId: spocUser.id,
+    email: spocUser.email,
+    roles: [ROLES.SPOC],
+    permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
   });
 
   const supportUser = await prisma.user.findFirst({
@@ -83,10 +83,10 @@ test("SYSTEM HEALTH & ADMINISTRATION CENTER TESTS (/admin/system)", async (t) =>
     assert(typeof dbService.activeParticipants === "number");
   });
 
-  // Test 2: Unauthorized volunteer is rejected with HTTP 403 Forbidden
-  await t.test("Test 2: Unauthorized volunteer is rejected with HTTP 403", async () => {
+  // Test 2: Unauthorized SPOC is rejected with HTTP 403 Forbidden
+  await t.test("Test 2: Unauthorized SPOC is rejected with HTTP 403", async () => {
     const req = new NextRequest("http://localhost:3000/api/system/health", {
-      headers: { cookie: `szwbt_session=${volunteerToken}` },
+      headers: { cookie: `szwbt_session=${spocToken}` },
     });
     const res = await getSystemHealth(req);
     assert.equal(res.status, 403);
@@ -163,7 +163,7 @@ test("SYSTEM HEALTH & ADMINISTRATION CENTER TESTS (/admin/system)", async (t) =>
 
   // Test 8: Super Admin can toggle another user's active status safely
   await t.test("Test 8: Super Admin can toggle another user's active status safely", async () => {
-    const req = new NextRequest(`http://localhost:3000/api/system/users/${volunteerUser.id}`, {
+    const req = new NextRequest(`http://localhost:3000/api/system/users/${spocUser.id}`, {
       method: "PATCH",
       headers: {
         cookie: `szwbt_session=${superAdminToken}`,
@@ -172,7 +172,7 @@ test("SYSTEM HEALTH & ADMINISTRATION CENTER TESTS (/admin/system)", async (t) =>
       body: JSON.stringify({ isActive: true }),
     });
     const res = await updateSystemUser(req, {
-      params: Promise.resolve({ id: volunteerUser.id }),
+      params: Promise.resolve({ id: spocUser.id }),
     });
     assert.equal(res.status, 200);
     const body = await res.json();

@@ -410,7 +410,7 @@ export default function CreateAnnouncementPage() {
                         { id: "ALL", label: "ALL PARTICIPANTS & DELEGATES", desc: "Whole tournament broadcast network" },
                         { id: "PARTICIPANTS", label: "ATHLETES & PLAYERS ONLY", desc: "Registered badminton players" },
                         { id: "TEAM_MANAGERS", label: "TEAM MANAGERS & COACHES", desc: "Official university representatives" },
-                        { id: "VOLUNTEERS", label: "VOLUNTEER BRIGADE", desc: "Field assistance & court crew" },
+                        { id: "SPOCS", label: "STUDENT POINTS OF CONTACT (SPOC)", desc: "Assigned team coordination and monitoring" },
                         { id: "MATCH_OFFICIALS", label: "MATCH OFFICIALS & UMPIRES", desc: "Court umpires and ref staff" },
                         { id: "ORGANIZERS", label: "ORGANIZING COMMITTEE", desc: "Executive tournament staff" },
                         { id: "SUPPORT_STAFF", label: "SUPPORT DESK OPERATORS", desc: "Desk & help center staff" },
@@ -439,12 +439,12 @@ export default function CreateAnnouncementPage() {
                   {targetAudience === "SPECIFIC_TEAM" && (
                     <div className="p-3 bg-[#050914] border border-pixel-orange-fiery/40 space-y-2">
                       <label className="block font-pixel text-[11px] text-pixel-orange-bright uppercase">
-                        University / Team ID
+                        University / State Code (e.g. AP - 01)
                       </label>
                       <PixelInput
                         value={specificTeam}
                         onChange={(e) => setSpecificTeam(e.target.value)}
-                        placeholder="e.g. ANNA_UNIV_TEAM_A"
+                        placeholder="e.g. AP - 01 or KA - 14"
                       />
                     </div>
                   )}

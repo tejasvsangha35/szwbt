@@ -41,6 +41,7 @@ const NAV_ITEMS = [
   { href: "/admin/system/permissions", label: "06 PERMISSIONS", icon: KeyRound },
   { href: "/admin/system/configuration", label: "07 CONFIGURATION", icon: Settings },
   { href: "/admin/system/audit", label: "08 AUDIT TRAIL", icon: History },
+  { href: "/admin/spocs", label: "09 SPOC ASSIGNMENTS", icon: Users },
 ];
 
 export const SystemAdminShell: React.FC<SystemAdminShellProps> = ({

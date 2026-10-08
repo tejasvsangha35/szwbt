@@ -28,6 +28,7 @@ import {
   AlertCircle,
   FileCheck,
 } from "lucide-react";
+import { formatTeamCode } from "@/lib/team/format";
 import { OfficialPoolBracket } from "@/components/tournament/OfficialPoolBracket";
 import {
   ROUND_1_MATCH_FLOW,
@@ -1140,12 +1141,12 @@ export default function AdminFixturesPage() {
 
                     <div>
                       <label className="font-pixel text-[10px] text-[#91A0AE] uppercase tracking-wider block mb-1">
-                        ENTER TEAM # (1-101) OR CODE
+                        ENTER STATE CODE (e.g. AP - 01) OR UNIVERSITY
                       </label>
                       <div className="relative">
                         <input
                           type="text"
-                          placeholder="e.g. 1 or TM-SZ-001 or Madras..."
+                          placeholder="e.g. AP - 01 or Madras..."
                           value={team1Input}
                           onChange={(e) => handleTeam1Search(e.target.value)}
                           className="w-full bg-[#0b0f1d] border-2 border-[#1b253b] focus:border-[#00F0FF] text-xl font-bold font-mono text-[#00F0FF] px-4 py-3 rounded-xl focus:outline-none transition-all"
@@ -1161,7 +1162,7 @@ export default function AdminFixturesPage() {
                       <div className="p-3.5 bg-[#0e162b] border border-[#00F0FF]/40 rounded-xl space-y-1.5 animate-fadeIn">
                         <div className="flex items-center justify-between">
                           <span className="px-2 py-0.5 bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/40 font-pixel text-[10px] font-bold uppercase rounded">
-                            TEAM #{team1Fetched.teamNumber || "-"} ({team1Fetched.teamCode})
+                            TEAM {formatTeamCode(team1Fetched.teamCode)}
                           </span>
                           <span className="text-xs text-[#91A0AE] font-mono">{team1Fetched.state}</span>
                         </div>
@@ -1215,12 +1216,12 @@ export default function AdminFixturesPage() {
 
                     <div>
                       <label className="font-pixel text-[10px] text-[#91A0AE] uppercase tracking-wider block mb-1">
-                        ENTER TEAM # (1-101) OR CODE
+                        ENTER STATE CODE (e.g. KA - 01) OR UNIVERSITY
                       </label>
                       <div className="relative">
                         <input
                           type="text"
-                          placeholder="e.g. 2 or TM-SZ-002 or Bangalore..."
+                          placeholder="e.g. KA - 01 or Bangalore..."
                           value={team2Input}
                           onChange={(e) => handleTeam2Search(e.target.value)}
                           className="w-full bg-[#0b0f1d] border-2 border-[#1b253b] focus:border-[#FF5A16] text-xl font-bold font-mono text-[#FF5A16] px-4 py-3 rounded-xl focus:outline-none transition-all"
@@ -1236,7 +1237,7 @@ export default function AdminFixturesPage() {
                       <div className="p-3.5 bg-[#0e162b] border border-[#FF5A16]/40 rounded-xl space-y-1.5 animate-fadeIn">
                         <div className="flex items-center justify-between">
                           <span className="px-2 py-0.5 bg-[#FF5A16]/20 text-[#FF5A16] border border-[#FF5A16]/40 font-pixel text-[10px] font-bold uppercase rounded">
-                            TEAM #{team2Fetched.teamNumber || "-"} ({team2Fetched.teamCode})
+                            TEAM {formatTeamCode(team2Fetched.teamCode)}
                           </span>
                           <span className="text-xs text-[#91A0AE] font-mono">{team2Fetched.state}</span>
                         </div>
@@ -1385,12 +1386,12 @@ export default function AdminFixturesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div className="md:col-span-8">
                     <label className="font-pixel text-[10px] text-[#91A0AE] uppercase block mb-1">
-                      ENTER TEAM # (1-101), CODE OR UNIVERSITY NAME
+                      ENTER STATE CODE (e.g. AP - 01) OR UNIVERSITY
                     </label>
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="e.g. 1 or TM-SZ-001 or Madras..."
+                        placeholder="e.g. AP - 01 or Madras..."
                         value={byeTeamInput}
                         onChange={(e) => handleByeTeamSearch(e.target.value)}
                         className="w-full bg-[#0b0f1d] border border-[#1b253b] text-sm text-[#f5e6ca] px-3.5 py-2.5 rounded-lg focus:outline-none focus:border-[#FFB800]"
@@ -1422,9 +1423,8 @@ export default function AdminFixturesPage() {
                   <div className="p-3 bg-[#0e162b] border border-[#FFB800]/40 rounded-xl space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 bg-[#FFB800] text-black font-pixel text-[10px] font-bold uppercase rounded">
-                        TEAM #{byeTeamFetched.teamNumber || "-"}
+                        TEAM {formatTeamCode(byeTeamFetched.teamCode)}
                       </span>
-                      <span className="font-pixel text-xs text-[#00F0FF]">{byeTeamFetched.teamCode}</span>
                       <span className="text-xs text-[#91A0AE]">&bull; {byeTeamFetched.state}</span>
                     </div>
                     <h4 className="font-display text-base text-[#f5e6ca] font-bold uppercase">
@@ -1551,13 +1551,13 @@ export default function AdminFixturesPage() {
                 {/* Team Search Input */}
                 <div>
                   <label className="font-pixel text-[10px] text-[#91A0AE] uppercase block mb-1">
-                    SEARCH AVAILABLE TEAM (TEAM ID OR UNIVERSITY)
+                    SEARCH AVAILABLE TEAM (STATE CODE OR UNIVERSITY)
                   </label>
                   <div className="relative">
                     <Search className="w-4 h-4 text-[#91A0AE] absolute left-3 top-3" />
                     <input
                       type="text"
-                      placeholder="e.g. TM-SZ-005 or Bangalore..."
+                      placeholder="e.g. AP - 01 or Bangalore..."
                       value={searchTeamQuery}
                       onChange={(e) => {
                         setSearchTeamQuery(e.target.value);
@@ -1584,7 +1584,7 @@ export default function AdminFixturesPage() {
                     <option value="">-- Select Team --</option>
                     {availableTeams.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.teamCode} &bull; {t.name} ({t.institution} - {t.state})
+                        {formatTeamCode(t.teamCode)} &bull; {t.name} ({t.institution} - {t.state})
                       </option>
                     ))}
                   </select>
@@ -1595,7 +1595,7 @@ export default function AdminFixturesPage() {
                   <div className="p-4 bg-[#0e162b] border border-[#00F0FF]/40 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-pixel text-xs text-[#ff5500] font-bold">
-                        {selectedTeam.teamCode}
+                        {formatTeamCode(selectedTeam.teamCode)}
                       </span>
                       <span className="px-2 py-0.5 bg-[#05D550] text-black font-pixel text-[9px] font-bold uppercase">
                         {selectedTeam.eligibility}
@@ -1857,7 +1857,7 @@ export default function AdminFixturesPage() {
                       : "bg-[#050914] text-[#91A0AE] hover:text-white border border-[#1b253b]"
                   }`}
                 >
-                  Match Fixtures Table (100 Matches)
+                  Official Fixture Table (102 Ties)
                 </button>
                 <button
                   onClick={() => setAdminTableTab("POSITIONS")}
@@ -1867,7 +1867,7 @@ export default function AdminFixturesPage() {
                       : "bg-[#050914] text-[#91A0AE] hover:text-white border border-[#1b253b]"
                   }`}
                 >
-                  25 Teams Per Pool Directory (100 Teams Total)
+                  Official Universities Directory (102 Teams Total)
                 </button>
               </div>
 
@@ -2124,7 +2124,7 @@ export default function AdminFixturesPage() {
                     <option value="">-- Choose Team --</option>
                     {availableTeams.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.teamCode} &bull; {t.name} ({t.institution})
+                        {formatTeamCode(t.teamCode)} &bull; {t.name} ({t.institution})
                       </option>
                     ))}
                   </select>
@@ -2234,7 +2234,7 @@ export default function AdminFixturesPage() {
                     <option value="">-- Choose New Team --</option>
                     {availableTeams.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.teamCode} &bull; {t.name} ({t.institution})
+                        {formatTeamCode(t.teamCode)} &bull; {t.name} ({t.institution})
                       </option>
                     ))}
                   </select>

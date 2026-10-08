@@ -86,8 +86,8 @@ function isRoleAuthorized(
       return hasRole("TEAM_MANAGER") || hasPermission("team:update");
     case "participant":
       return hasRole("PARTICIPANT") || hasPermission("participant:read");
-    case "volunteer":
-      return hasRole("VOLUNTEER");
+    case "spoc":
+      return hasRole("SPOC");
     case "organizer":
       return hasRole("ORGANIZER");
     case "system_health":

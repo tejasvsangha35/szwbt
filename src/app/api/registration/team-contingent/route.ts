@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
 import { logAuditEvent } from "@/lib/rbac/audit";
 import { generateParticipantQr } from "@/lib/qr/service";
+import { generateNextStateTeamCode } from "@/lib/team/format";
 import fs from "fs";
 import path from "path";
 
@@ -98,15 +99,59 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Validate all provided athletes
+      const cleanState = state.trim();
+      const cleanInst = institution.trim();
+      const cleanTeamName = teamName?.trim() || `${cleanInst} Badminton Contingent`;
+      const finalManagerName = manager?.name || managerName || "";
+      const finalManagerPhone = manager?.mobile || managerPhone || "";
+      const finalManagerEmail = manager?.email || managerEmail || "";
+      const finalManagerPhoto = manager?.photoUrl || managerPhotoUrl || null;
+      const finalManagerAadhaar = manager?.aadhaarNumber || managerAadhaarNumber || "";
+      const finalManagerAadhaarUrl = manager?.aadhaarUrl || managerAadhaarUrl || null;
+      const finalManagerBedId = manager?.bedId || managerBedId || null;
+
+      // Validate Team Manager: only Full Name and Contact Number are compulsory; documents, photo, and email are optional
+      if (!finalManagerName.trim() || !finalManagerPhone.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Team Manager Full Name and Contact Number are compulsory.",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Validate all provided athletes: all details (name, mobile, email, photo, combined PDF documents) are strictly compulsory
       for (let i = 0; i < athletes.length; i++) {
         const a = athletes[i];
-        if (!a.name || !a.name.trim() || !a.mobile || !a.mobile.trim() || !a.email || !a.email.trim()) {
+        const slotName = i === 0 ? "Athlete 1 (Team Captain)" : `Athlete ${i + 1}`;
+        if (!a.name || !a.name.trim()) {
           return NextResponse.json(
-            {
-              success: false,
-              error: `Athlete ${i + 1} is missing mandatory Full Name, Mobile Number, or Email Address.`,
-            },
+            { success: false, error: `${slotName} is missing compulsory Full Name.` },
+            { status: 400 }
+          );
+        }
+        if (!a.mobile || !a.mobile.trim()) {
+          return NextResponse.json(
+            { success: false, error: `${slotName} is missing compulsory Mobile Number.` },
+            { status: 400 }
+          );
+        }
+        if (!a.email || !a.email.trim()) {
+          return NextResponse.json(
+            { success: false, error: `${slotName} is missing compulsory Email Address.` },
+            { status: 400 }
+          );
+        }
+        if (!a.photoUrl || !a.photoUrl.trim()) {
+          return NextResponse.json(
+            { success: false, error: `${slotName} is missing compulsory Photograph.` },
+            { status: 400 }
+          );
+        }
+        if (!a.pdfDataUrl || !a.pdfDataUrl.trim()) {
+          return NextResponse.json(
+            { success: false, error: `${slotName} is missing compulsory Documents (1 Combined PDF).` },
             { status: 400 }
           );
         }
@@ -119,34 +164,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const cleanState = state.trim();
-      const cleanInst = institution.trim();
-      const cleanTeamName = teamName?.trim() || `${cleanInst} Badminton Contingent`;
-      const finalManagerName = manager?.name || managerName || "";
-      const finalManagerPhone = manager?.mobile || managerPhone || "";
-      const finalManagerEmail = manager?.email || managerEmail || "";
-      const finalManagerPhoto = manager?.photoUrl || managerPhotoUrl || null;
-      const finalManagerAadhaar = manager?.aadhaarNumber || managerAadhaarNumber || "";
-      const finalManagerAadhaarUrl = manager?.aadhaarUrl || managerAadhaarUrl || null;
-      const finalManagerBedId = manager?.bedId || managerBedId || null;
-
-      if (finalManagerName.trim() && (!finalManagerPhone.trim() || !finalManagerEmail.trim())) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Team Manager requires both Contact Number and Email Address.",
-          },
-          { status: 400 }
-        );
-      }
-
       const totalAmount = athletes.length * feePerAthlete;
 
       // 2. Atomic Transaction
       const result = await prisma.$transaction(async (tx) => {
         // A. Create or Find University Team
-        const teamCount = await tx.team.count();
-        const teamCode = `TM-SZ-${String(teamCount + 1).padStart(3, "0")}`;
+        const teamCode = await generateNextStateTeamCode(tx, cleanState);
         const teamQrToken = `sz26_qr_tm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
 
         const team = await tx.team.create({

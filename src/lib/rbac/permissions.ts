@@ -122,6 +122,15 @@ export const PERMISSIONS = {
   COURT_MANAGE: "court:manage",
   SCHEDULE_MANAGE: "schedule:manage",
   SCHEDULE_LOCK: "schedule:lock",
+
+  // SPOC (Student Point of Contact)
+  SPOC_VIEW_OWN_TEAMS: "spoc:view_own_teams",
+  SPOC_VIEW_REGISTRATION: "spoc:view_registration",
+  SPOC_VIEW_TRANSPORT: "spoc:view_transport",
+  SPOC_VIEW_ACCOMMODATION: "spoc:view_accommodation",
+  SPOC_VIEW_MATCHES: "spoc:view_matches",
+  SPOC_VIEW_LIVE_MATCH: "spoc:view_live_match",
+  SPOC_VIEW_CONTACTS: "spoc:view_contacts",
 } as const;
 
 export type PermissionCode = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -250,4 +259,13 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
   { code: PERMISSIONS.COURT_MANAGE, resource: "court", action: "manage", description: "Configure match arena courts" },
   { code: PERMISSIONS.SCHEDULE_MANAGE, resource: "schedule", action: "manage", description: "Manage fixtures and schedule assignments" },
   { code: PERMISSIONS.SCHEDULE_LOCK, resource: "schedule", action: "lock", description: "Lock or unlock tournament schedule" },
+
+  // SPOC (Student Point of Contact)
+  { code: PERMISSIONS.SPOC_VIEW_OWN_TEAMS, resource: "spoc", action: "view_own_teams", description: "View the 4 assigned teams for the authenticated SPOC" },
+  { code: PERMISSIONS.SPOC_VIEW_REGISTRATION, resource: "spoc", action: "view_registration", description: "Read-only view of assigned teams registration data" },
+  { code: PERMISSIONS.SPOC_VIEW_TRANSPORT, resource: "spoc", action: "view_transport", description: "Read-only view of assigned teams transit schedule and arrival status" },
+  { code: PERMISSIONS.SPOC_VIEW_ACCOMMODATION, resource: "spoc", action: "view_accommodation", description: "Read-only view of assigned teams hostel block, room and bed allocations" },
+  { code: PERMISSIONS.SPOC_VIEW_MATCHES, resource: "spoc", action: "view_matches", description: "Read-only view of assigned teams upcoming, live, and completed matches" },
+  { code: PERMISSIONS.SPOC_VIEW_LIVE_MATCH, resource: "spoc", action: "view_live_match", description: "Real-time view of court live scoring for assigned teams" },
+  { code: PERMISSIONS.SPOC_VIEW_CONTACTS, resource: "spoc", action: "view_contacts", description: "Direct communication directory for assigned teams managers and emergency contacts" },
 ];

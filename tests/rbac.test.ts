@@ -323,30 +323,30 @@ async function runTests() {
     update: { isActive: true },
     create: {
       email: "temp.revocation@szwbt2026.edu",
-      name: "Temporary Volunteer",
+      name: "Temporary SPOC",
       passwordHash: "szwbt2026pass",
       isActive: true,
     },
   });
 
-  const volunteerRole = await prisma.role.findUnique({ where: { name: ROLES.VOLUNTEER } });
+  const spocRole = await prisma.role.findUnique({ where: { name: ROLES.SPOC } });
   await prisma.userRole.create({
-    data: { userId: tempUser.id, roleId: volunteerRole!.id },
+    data: { userId: tempUser.id, roleId: spocRole!.id },
   });
 
   const beforeRevoke = await getUserContext(tempUser.id);
-  const hadVolunteerRole = beforeRevoke?.roles.includes(ROLES.VOLUNTEER);
+  const hadSpocRole = beforeRevoke?.roles.includes(ROLES.SPOC);
 
   // Now revoke the role
   await prisma.userRole.deleteMany({
-    where: { userId: tempUser.id, roleId: volunteerRole!.id },
+    where: { userId: tempUser.id, roleId: spocRole!.id },
   });
 
   const afterRevoke = await getUserContext(tempUser.id);
-  const hasRoleAfterRevoke = afterRevoke?.roles.includes(ROLES.VOLUNTEER);
+  const hasRoleAfterRevoke = afterRevoke?.roles.includes(ROLES.SPOC);
 
   assert(
-    hadVolunteerRole === true && hasRoleAfterRevoke === false && afterRevoke?.permissions.length === 0,
+    hadSpocRole === true && hasRoleAfterRevoke === false && afterRevoke?.permissions.length === 0,
     "18: When role is removed from database, permissions are immediately and authoritatively revoked"
   );
 

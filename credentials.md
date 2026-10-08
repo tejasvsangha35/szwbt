@@ -49,13 +49,44 @@ szwbt2026pass
 | **Dual Desk Staff (Multi-Role)** | `priya.multirole@szwbt2026.edu` | `szwbt2026pass` | Dual Desk Ops | [`/register`](http://localhost:3000/register)<br>[`/admin/accommodation`](http://localhost:3000/admin/accommodation) | Registration & Accommodation dual-clearance for seamless check-in and hostel assignment. |
 | **Treasury Auditor** | `finance@szwbt2026.edu` | `szwbt2026pass` | Treasury Clearance | [`/admin/finance`](http://localhost:3000/admin/finance) | Institutional affiliation fees, security deposits, refund processing, UTR reconciliation, and financial audit reports. |
 
-#### 5. Ground Logistics & Fleet
+#### 5. Ground Logistics & Contingent Coordination
 | Role | Email / Login ID | Password | Clearance Level | Primary Portal Route | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Fleet Transport Manager** | `transport@szwbt2026.edu` | `szwbt2026pass` | Fleet Control | [`/admin/transport`](http://localhost:3000/admin/transport) | Shuttle fleet, driver assignments, Hubballi Junction/Airport pickups. *(Strict Zero Payment Policy enforced)* |
 | **Hostel Logistics Officer** | `hostel@szwbt2026.edu` | `szwbt2026pass` | Residence Advisor | [`/admin/accommodation`](http://localhost:3000/admin/accommodation) | Shalmala & Vindhya Hostel block allocation, room and bed assignments, check-in/out timestamps. |
-| **Arena Field Volunteer** | `volunteer@szwbt2026.edu` | `szwbt2026pass` | Mobile Field | [`/volunteer`](http://localhost:3000/volunteer) | Shift tasks, live court assistance, spectator management, water/shuttle replenishment, and field SOS distress calls. |
-| **Field Volunteer (Support)** | `volunteer2@szwbt2026.edu` | `szwbt2026pass` | Mobile Field | [`/volunteer`](http://localhost:3000/volunteer) | Secondary field volunteer for shift relief, shuttle replenishment, and runner tasks. |
+| **SPOC Desk Lead (Test)** | `spoc@szwbt2026.edu` | `szwbt2026pass` | SPOC Desk | [`/spoc`](http://localhost:3000/spoc) | SPOC test account for general coordinator workflow testing. |
+
+##### 5.1 Official Championship SPOC Directory (26 SPOCs • 102 Assigned Teams)
+All SPOC accounts authenticate via [`/login`](http://localhost:3000/login) with the default tournament password `szwbt2026pass` and are dispatched directly to [`/spoc`](http://localhost:3000/spoc) with strict team-level data isolation.
+
+| State / Group | SPOC Name | Email / Login ID | Password | SPOC Contact | Assigned Teams |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **AP** | Utkarsh Gupta | `utkarshguptaspoc@szwbt2026.edu` | `szwbt2026pass` | 7760618549 | **AP-01** (Acharya Nagarjuna), **AP-02** (Adikavi Nannaya), **AP-03** (Andhra Univ), **AP-04** (Dr. NTR Health Sciences) |
+| **AP** | Ashrita Angadi | `ashritaangadispoc@szwbt2026.edu` | `szwbt2026pass` | 6366955515 | **AP-05** (GITAM), **AP-06** (JNTU Ananthpura), **AP-07** (JNTU Gurujada), **AP-08** (JNTU Kakinada) |
+| **AP** | Nitisha M N | `nitishamnspoc@szwbt2026.edu` | `szwbt2026pass` | 7892923187 | **AP-09** (KLEF), **AP-10** (Krishna Univ), **AP-11** (Mohan Babu), **AP-12** (Rayalaseema) |
+| **AP** | Khushi | `khushispoc@szwbt2026.edu` | `szwbt2026pass` | *Not Provided* | **AP-13** (Siddharth Academy), **AP-14** (Sri Krishnadevaraya), **AP-15** (Sri Venkateshwar), **AP-16** (The Apollo Univ) |
+| **AP** | Pooja P | `poojapspoc@szwbt2026.edu` | `szwbt2026pass` | 8660932088 | **AP-17** (Vighnan's), **AP-18** (Vikram Simhapuri), **AP-19** (VIT-AP), **AP-20** (Yogi Veman) |
+| **KA** | Arpita Patil | `arpitapatilspoc@szwbt2026.edu` | `szwbt2026pass` | 7019416947 | **KA-01** (Valmiki), **KA-02** (Bagalkot), **KA-03** (Bangalore Univ), **KA-04** (Bengaluru North), **KA-05** (Central Univ Karnataka) |
+| **KA** | Bhumika M | `bhumikamspoc@szwbt2026.edu` | `szwbt2026pass` | 6360433574 | **KA-06** (Chamarajnagara), **KA-07** (Chanakya), **KA-08** (Christ Univ), **KA-09** (Davangere) |
+| **KA** | Anika B | `anikabspoc@szwbt2026.edu` | `szwbt2026pass` | 9972826672 | **KA-10** (Dr. Manmohan Singh BCU), **KA-11** (Gulbarga), **KA-12** (Hassan), **KA-13** (Haveri) |
+| **KA** | Sadaf H | `sadafhspoc@szwbt2026.edu` | `szwbt2026pass` | 8867672307 | **KA-14** (Jain Univ), **KA-15** (JSS AHER), **KA-16** (Karnatak Univ), **KA-17** (Karnataka State Law) |
+| **KA** | Ananya H | `ananyahspoc@szwbt2026.edu` | `szwbt2026pass` | 9591487531 | **KA-18** (Akkamahadevi), **KA-19** (Kitturu Rani), **KA-20** (KLE Academy), **KA-21** (KLE Tech) |
+| **KA** | Sanjana G | `sanjanagspoc@szwbt2026.edu` | `szwbt2026pass` | 9741351090 | **KA-22** (Kristu Jayanti), **KA-23** (Kuvempu), **KA-24** (Maharani Cluster) |
+| **KA** | Sakshi (NCC) | `sakshinccspoc@szwbt2026.edu` | `szwbt2026pass` | 7795444086 | **KA-25** (Mangalore Univ), **KA-26** (Manipal Academy), **KA-27** (Nitte Univ), **KA-28** (PES Univ) |
+| **KA** | Vaishnavi S | `vaishnavisspoc@szwbt2026.edu` | `szwbt2026pass` | 9113999604 | **KA-29** (Presidency), **KA-30** (RGUHS), **KA-31** (Reva), **KA-32** (RV Univ), **KA-33** (SDM Univ Dharwad) |
+| **KA** | Roopa H | `roopahspoc@szwbt2026.edu` | `szwbt2026pass` | 6361934927 | **KA-34** (Tumkur), **KA-35** (UAS Dharwad), **KA-36** (Univ of Mysore), **KA-37** (VSKU Ballari), **KA-38** (VTU Belagavi) |
+| **KR** | Karuna | `karunaspoc@szwbt2026.edu` | `szwbt2026pass` | 8217019421 | **KR-01** (APJ Abdul Kalam), **KR-02** (Chinmay Vishwa), **KR-03** (CUSAT), **KR-04** (Kannur Univ) |
+| **KR** | Soni | `sonispoc@szwbt2026.edu` | `szwbt2026pass` | 9036862732 | **KR-05** (Kerala Agricultural), **KR-06** (KUHS Thrissur), **KR-07** (MG Univ Kottayam), **KR-08** (SSUS Kalady) |
+| **KR** | Shanavas | `shanavasspoc@szwbt2026.edu` | `szwbt2026pass` | 9945670955 | **KR-09** (Univ of Calicut), **KR-10** (Univ of Kerala) |
+| **TN** | Purvi V Patil | `purvivpatilspoc@szwbt2026.edu` | `szwbt2026pass` | 8762104763 | **TN-01** (Alagappa), **TN-02** (Amrita Vishwavidyapeetham), **TN-03** (Anna Univ), **TN-04** (Annamalai) |
+| **TN** | Sujala | `sujalaspoc@szwbt2026.edu` | `szwbt2026pass` | 9353407394 | **TN-05** (B S Abdur Rehman), **TN-06** (Bharathiar), **TN-07** (Bharathidasan), **TN-08** (Central Univ Tamilnadu) |
+| **TN** | Sufala | `sufalaspoc@szwbt2026.edu` | `szwbt2026pass` | 7619267497 | **TN-09** (Dr. MGR), **TN-10** (Dravidian), **TN-11** (Hindustan Institute), **TN-12** (IIT Madras) |
+| **TN** | Anvita K | `anvitakspoc@szwbt2026.edu` | `szwbt2026pass` | 6361184289 | **TN-13** (Madurai Kamaraj), **TN-14** (MS Univ Tirunelveli), **TN-15** (Mother Teresa), **TN-16** (Periyar) |
+| **TN** | Vandita L | `vanditalspoc@szwbt2026.edu` | `szwbt2026pass` | 8073194891 | **TN-17** (SASTRA), **TN-18** (Saveetha), **TN-19** (SRM IST) |
+| **TN** | Srinidhi (NCC) | `srinidhinccspoc@szwbt2026.edu` | `szwbt2026pass` | 9008739904 | **TN-20** (St. Joseph), **TN-21** (TNPESU), **TN-22** (Ambedkar Law), **TN-23** (Thiruvalluvar), **TN-24** (Univ of Madras) |
+| **TN / PO** | **Nithish J** | `nithishjspoc@szwbt2026.edu` | `szwbt2026pass` | 8310128592 | **TN-25** (VIT Katapadi), **TN-26** (Vinayak Mission), **PO-01** (Pondicherry University) *(Exactly 3 Teams)* |
+| **TE** | Goutham R | `gouthamrspoc@szwbt2026.edu` | `szwbt2026pass` | 7019688638 | **TE-01** (JNTU Hyderabad), **TE-02** (Kakatiya Univ), **TE-03** (Malla Reddy), **TE-04** (Osmania Univ) |
+| **TE** | Bhakti T | `bhaktitspoc@szwbt2026.edu` | `szwbt2026pass` | 7338203033 | **TE-05** (Telangana Univ), **TE-06** (Univ of Hyderabad), **TE-07** (Woxen Univ) |
 
 #### 6. Court Technical & Match Officiating (Dedicated Court Umpires)
 | Role | Email / Login ID | Password | Clearance Level | Court Jurisdiction | Primary Portal Route | Description |

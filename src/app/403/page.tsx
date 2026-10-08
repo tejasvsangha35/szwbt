@@ -21,7 +21,7 @@ function ForbiddenContent() {
     if (roles.includes("MATCH_OFFICIAL")) return "/official";
     if (roles.includes("ORGANIZER")) return "/organizer";
     if (roles.includes("OPERATIONS_STAFF")) return "/operations";
-    if (roles.includes("VOLUNTEER")) return "/volunteer";
+    if (roles.includes("SPOC")) return "/spoc";
     if (roles.includes("TEAM_MANAGER")) return "/team";
     if (roles.includes("PARTICIPANT")) return "/dashboard";
     if (roles.includes("SUPPORT_STAFF")) return "/support";

@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/rbac/guard";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
+import { getTeamCodeSearchCandidates } from "@/lib/team/format";
 
 /**
  * GET /api/accommodation/teams/search
@@ -18,11 +19,13 @@ export const GET = withAuth(
         return NextResponse.json({ success: true, count: 0, teams: [] });
       }
 
+      const candidates = getTeamCodeSearchCandidates(query);
       const teams = await prisma.team.findMany({
         where: {
           OR: [
             { name: { contains: query, mode: "insensitive" } },
             { teamCode: { contains: query, mode: "insensitive" } },
+            { teamCode: { in: candidates } },
             { institution: { contains: query, mode: "insensitive" } },
             { managerName: { contains: query, mode: "insensitive" } },
             { captainName: { contains: query, mode: "insensitive" } },

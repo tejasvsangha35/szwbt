@@ -40,6 +40,7 @@ import {
 } from "@/components/participant/ParticipantPortalShell";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { PixelQR } from "@/components/team/PixelQR";
+import { formatTeamCode } from "@/lib/team/format";
 
 function ParticipantDashboardContent() {
   const searchParams = useSearchParams();
@@ -810,7 +811,7 @@ function ParticipantDashboardContent() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-pixel-gray-800 pb-4">
                   <div>
                     <span className="font-mono text-[10px] text-pixel-cyan">
-                      CODE: {teamData.teamCode}
+                      TEAM ID (STATE CODE): {formatTeamCode(teamData.teamCode)}
                     </span>
                     <h3 className="font-pixel text-lg text-pixel-cream mt-0.5">{teamData.name}</h3>
                     <p className="font-sans text-xs text-pixel-gray-400">{teamData.institution}</p>

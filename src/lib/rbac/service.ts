@@ -253,8 +253,10 @@ export async function checkResourceScope(
             where: { id: resourceId },
             select: { assignedOfficialId: true, court: true },
           });
-          assignedOfficialId = match?.assignedOfficialId;
-          matchCourt = match?.court || null;
+          if (match) {
+            assignedOfficialId = match.assignedOfficialId ?? assignedOfficialId;
+            matchCourt = match.court ?? matchCourt;
+          }
         } catch (e) {
           // fallback
         }
@@ -292,8 +294,8 @@ export async function checkResourceScope(
       return { allowed: true };
     }
 
-    // Read only for participants and managers
-    if (action === "read" && (context.roles.includes(ROLES.PARTICIPANT) || context.roles.includes(ROLES.TEAM_MANAGER) || context.roles.includes(ROLES.VOLUNTEER))) {
+    // Read only for participants, managers, and SPOC
+    if (action === "read" && (context.roles.includes(ROLES.PARTICIPANT) || context.roles.includes(ROLES.TEAM_MANAGER) || context.roles.includes(ROLES.SPOC))) {
       return { allowed: true };
     }
 
@@ -317,6 +319,21 @@ export async function checkResourceScope(
           allowed: false,
           reason: "Team Manager cannot access or modify another institution's team data.",
         };
+      }
+      return { allowed: true };
+    }
+
+    if (context.roles.includes(ROLES.SPOC)) {
+      if (action !== "read") {
+        return { allowed: false, reason: "SPOC has read-only access and cannot modify official team records." };
+      }
+      if (resourceId) {
+        const assignment = await prisma.spocTeamAssignment.findUnique({
+          where: { teamId: resourceId },
+        });
+        if (!assignment || assignment.spocId !== context.user.id) {
+          return { allowed: false, reason: "SPOC can only access their 4 assigned teams." };
+        }
       }
       return { allowed: true };
     }
@@ -460,6 +477,18 @@ export async function checkResourceScope(
       if (context.roles.includes(ROLES.PARTICIPANT) && options?.participantId === context.user.participantId) {
         return { allowed: true };
       }
+      if (context.roles.includes(ROLES.SPOC)) {
+        if (options?.teamId) {
+          const assignment = await prisma.spocTeamAssignment.findUnique({
+            where: { teamId: options.teamId },
+          });
+          if (assignment && assignment.spocId === context.user.id) {
+            return { allowed: true };
+          }
+          return { allowed: false, reason: "SPOC can only view accommodation for their 4 assigned teams." };
+        }
+        return { allowed: true };
+      }
     }
     return { allowed: false, reason: "Accommodation allocation is restricted to accommodation staff." };
   }
@@ -479,6 +508,18 @@ export async function checkResourceScope(
         return { allowed: true };
       }
       if (context.roles.includes(ROLES.PARTICIPANT) && options?.participantId === context.user.participantId) {
+        return { allowed: true };
+      }
+      if (context.roles.includes(ROLES.SPOC)) {
+        if (options?.teamId) {
+          const assignment = await prisma.spocTeamAssignment.findUnique({
+            where: { teamId: options.teamId },
+          });
+          if (assignment && assignment.spocId === context.user.id) {
+            return { allowed: true };
+          }
+          return { allowed: false, reason: "SPOC can only view transport for their 4 assigned teams." };
+        }
         return { allowed: true };
       }
     }

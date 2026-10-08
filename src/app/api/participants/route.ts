@@ -58,11 +58,15 @@ export async function GET(req: NextRequest) {
       const activeRoom = activeBed?.room;
       const activeHostel = activeRoom?.hostel;
       const activeFloor = activeRoom?.floor;
-      const activeQr = p.qrPasses[0]?.token || p.qrCode;
+      const activeQr = p.qrPasses[0]?.token || null;
+      const role = p.teamMemberships[0]?.role || (p.category === "Contingent Management" || p.category === "OFFICIAL" ? "MANAGER" : "ATHLETE");
+      const isManager = role === "MANAGER" || p.category === "Contingent Management";
 
+      // For athletes: documents must be uploaded and all verified
+      // For manager: documents are optional; if approved / has active pass or documents verified, status is VERIFIED
       const docStatus =
         p.documents.length === 0
-          ? "DOCUMENTS_PENDING"
+          ? (isManager && (activeQr || p.status === "APPROVED") ? "VERIFIED" : "DOCUMENTS_PENDING")
           : p.documents.every((d) => d.status === "VERIFIED")
           ? "VERIFIED"
           : "PENDING";
@@ -78,7 +82,7 @@ export async function GET(req: NextRequest) {
         institutionId: p.institutionId,
         category: p.category,
         gender: p.gender,
-        role: p.teamMemberships[0]?.role || (p.category === "OFFICIAL" ? "MANAGER" : "ATHLETE"),
+        role,
         teamMemberships: p.teamMemberships,
         status: p.status,
         photoUrl: p.photoUrl,
@@ -90,7 +94,7 @@ export async function GET(req: NextRequest) {
         payments: p.paymentLedgers?.map((l) => ({ amount: l.amountPaid, method: "CASH" })),
         amountPaid: p.paymentLedgers?.[0]?.amountPaid || 500,
         paymentMethod: "CASH",
-        qrToken: activeQr || p.qrCode || (p.playerId ? `SZ26-${p.playerId}` : `SZ26-PART-${p.id}`),
+        qrToken: (docStatus === "VERIFIED" && activeQr) ? activeQr : null,
         documentsStatus: docStatus,
         documents: p.documents,
         createdAt: p.createdAt.toISOString(),

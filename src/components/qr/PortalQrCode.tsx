@@ -14,6 +14,7 @@ export interface PortalQrCodeProps {
   referenceId?: string;
   referenceCode?: string;
   roleOrType?: string;
+  designation?: string;
   qrType?: "PARTICIPANT" | "TEAM" | string;
   size?: number;
   showActions?: boolean;
@@ -30,18 +31,30 @@ export const PortalQrCode: React.FC<PortalQrCodeProps> = ({
   subtitle,
   name,
   participantName,
-  institution = "Accredited Institution",
+  institution = "Accredited University / Institution",
   referenceId,
   referenceCode,
   roleOrType,
+  designation,
   qrType = "PARTICIPANT",
   size = 200,
   showActions = true,
   className = "",
 }) => {
-  const displayName = participantName || name || "Accredited Athlete";
+  const rawRole = (designation || roleOrType || subtitle || qrType || "").toUpperCase();
+  const isManager = rawRole.includes("MANAGER");
+  const isCaptain = rawRole.includes("CAPTAIN");
+
+  const displayDesignation = isManager
+    ? "MANAGER"
+    : isCaptain
+    ? "TEAM CAPTAIN"
+    : "ATHLETE";
+
+  const resolvedName = participantName || name || (isManager ? "Team Manager" : isCaptain ? "Team Captain" : "Athlete");
+  const displayUniversity = institution || "Accredited University / Institution";
   const displayRef = referenceCode || referenceId || "SZ-2026";
-  const displayRole = subtitle || roleOrType || (qrType === "TEAM" ? "OFFICIAL TEAM QR PASS" : "PARTICIPANT ACCREDITATION PASS");
+  const displayRoleHeader = qrType === "TEAM" ? "OFFICIAL TEAM QR PASS" : "OFFICIAL ACCREDITATION PASS";
   const [svgContent, setSvgContent] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -93,12 +106,19 @@ export const PortalQrCode: React.FC<PortalQrCodeProps> = ({
           <style>
             @page { size: A6 portrait; margin: 10mm; }
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 20px; color: #0F172A; }
-            .card { border: 2px solid #0F172A; padding: 20px; max-width: 320px; margin: 0 auto; }
+            .card { border: 2px solid #0F172A; padding: 20px; max-width: 320px; margin: 0 auto; border-radius: 12px; }
             .title { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #FF5500; margin-bottom: 4px; }
-            .sub { font-size: 9px; color: #475569; margin-bottom: 12px; }
-            .name { font-size: 16px; font-weight: 800; margin-bottom: 2px; }
-            .inst { font-size: 11px; color: #334155; margin-bottom: 8px; }
-            .ref { font-family: monospace; font-size: 12px; font-weight: bold; background: #F1F5F9; padding: 4px 8px; display: inline-block; margin-bottom: 12px; }
+            .sub { font-size: 9px; color: #475569; margin-bottom: 12px; font-family: monospace; font-weight: bold; }
+            .inst { font-size: 12px; font-weight: 800; color: #0F172A; margin-bottom: 6px; text-transform: uppercase; }
+            .role { display: inline-block; padding: 3px 12px; font-size: 11px; font-weight: 900; border-radius: 9999px; text-transform: uppercase; margin-bottom: 6px; ${
+              isManager
+                ? "background: #F3E8FF; color: #581C87; border: 1px solid #D8B4FE;"
+                : isCaptain
+                ? "background: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74;"
+                : "background: #DBEAFE; color: #1E40AF; border: 1px solid #93C5FD;"
+            }}
+            .name { font-size: 18px; font-weight: 900; margin-bottom: 6px; text-transform: uppercase; color: #0B1528; }
+            .ref { font-family: monospace; font-size: 12px; font-weight: bold; background: #FFF7ED; padding: 3px 10px; display: inline-block; margin-bottom: 12px; border: 1px solid #FFEDD5; border-radius: 9999px; color: #FF5500; }
             .qr-container svg { width: 180px; height: 180px; }
             .footer { font-size: 8px; color: #64748B; margin-top: 14px; border-top: 1px dashed #CBD5E1; padding-top: 8px; }
           </style>
@@ -106,9 +126,10 @@ export const PortalQrCode: React.FC<PortalQrCodeProps> = ({
         <body>
           <div class="card">
             <div class="title">${title}</div>
-            <div class="sub">${displayRole.toUpperCase()}</div>
-            <div class="name">${displayName}</div>
-            <div class="inst">${institution}</div>
+            <div class="sub">${displayRoleHeader}</div>
+            <div class="inst">${displayUniversity}</div>
+            <div class="role">${displayDesignation}</div>
+            <div class="name">${resolvedName}</div>
             <div class="ref">${displayRef}</div>
             <div class="qr-container">${svgContent}</div>
             <div class="footer">OFFICIAL ACCREDITATION PASS • DR. PRABHAKAR KORE SPORTS ARENA • HUBBALLI</div>
@@ -129,24 +150,42 @@ export const PortalQrCode: React.FC<PortalQrCodeProps> = ({
       style={{ maxWidth: Math.max(size + 60, 280) }}
     >
       {/* Official Header */}
-      <div className="w-full text-center pb-3 border-b border-gray-200 mb-3">
+      <div className="w-full text-center pb-2.5 border-b border-gray-200 mb-3">
         <p className="font-pixel text-[8.5px] text-[#FF5500] font-black uppercase tracking-wider leading-tight">
           {title}
         </p>
         <p className="font-pixel text-[7.5px] text-gray-500 uppercase tracking-widest mt-0.5">
-          {displayRole}
+          {displayRoleHeader}
         </p>
       </div>
 
-      {/* Participant Identity */}
-      <div className="w-full text-center mb-3">
-        <h4 className="font-display text-base sm:text-lg font-black text-[#0F172A] leading-tight">
-          {displayName}
-        </h4>
-        <p className="font-sans text-xs text-gray-600 line-clamp-1 mt-0.5">
-          {institution}
+      {/* Participant Identity & Hierarchy: University Name -> Designation -> Name below designation */}
+      <div className="w-full text-center mb-3 space-y-1">
+        {/* 1. University's Name */}
+        <p className="font-rajdhani text-xs font-black text-slate-800 uppercase tracking-wide px-1 leading-snug">
+          {displayUniversity}
         </p>
-        <div className="inline-block mt-1.5 px-2.5 py-0.5 bg-gray-100 border border-gray-300 font-mono text-[10px] font-bold text-[#FF5500]">
+
+        {/* 2. Designation ('ATHLETE', 'TEAM CAPTAIN', or 'MANAGER') */}
+        <div className="py-0.5">
+          <span className={`inline-block px-2.5 py-0.5 rounded-full font-rajdhani text-[10px] font-black uppercase tracking-wider ${
+            isManager
+              ? "bg-purple-100 text-purple-900 border border-purple-300"
+              : isCaptain
+              ? "bg-orange-100 text-[#FF5A16] border border-orange-300"
+              : "bg-blue-100 text-blue-900 border border-blue-300"
+          }`}>
+            {displayDesignation}
+          </span>
+        </div>
+
+        {/* 3. Their Name below their designation */}
+        <h4 className="font-rajdhani text-base sm:text-lg font-black text-[#0B1528] uppercase leading-tight pt-0.5">
+          {resolvedName}
+        </h4>
+
+        {/* Reference / ID */}
+        <div className="inline-block mt-0.5 px-2 py-0.5 bg-gray-100 border border-gray-300 font-mono text-[10px] font-bold text-[#FF5500] rounded">
           {displayRef}
         </div>
       </div>

@@ -242,7 +242,7 @@ export default function EmergencyBroadcastPage() {
                         { label: "PLAYERS & ATHLETES ONLY", value: "PARTICIPANTS" },
                         { label: "TEAM MANAGERS ONLY", value: "TEAM_MANAGERS" },
                         { label: "MATCH OFFICIALS & UMPIRES", value: "MATCH_OFFICIALS" },
-                        { label: "VOLUNTEER FORCE", value: "VOLUNTEERS" },
+                        { label: "SPOC (STUDENT POINT OF CONTACT)", value: "SPOCS" },
                         { label: "ORGANIZING COMMITTEE", value: "ORGANIZERS" },
                       ]}
                     />

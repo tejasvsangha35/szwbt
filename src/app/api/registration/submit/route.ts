@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
 import { logAuditEvent } from "@/lib/rbac/audit";
+import { generateNextStateTeamCode } from "@/lib/team/format";
 
 export const POST = withAuth(
   async (req: NextRequest, context: UserContext) => {
@@ -87,8 +88,7 @@ export const POST = withAuth(
         let targetTeam: any = null;
 
         if (isCreatingTeam && newTeamName) {
-          const teamCount = await tx.team.count();
-          const teamCode = `TM-SZ-${String(teamCount + 101).padStart(3, "0")}`;
+          const teamCode = await generateNextStateTeamCode(tx, cleanState);
           // Generate secure opaque QR token (NO PII or raw sensitive data encoded)
           const opaqueQrToken = `sz26_qr_tm_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
 

@@ -45,10 +45,14 @@ export const PROTECTED_ROUTES = [
   "/admin/system/institutions",
   "/admin/system/accommodation",
   "/admin/tournament",
+  "/admin/spocs",
   "/official",
   "/organizer",
   "/operations",
-  "/volunteer",
+  "/spoc",
+  "/spoc/teams",
+  "/spoc/matches",
+  "/spoc/contacts",
   "/support",
   "/team",
   "/dashboard",
@@ -87,8 +91,16 @@ export const ROUTES = {
     official: () => "/official",
     organizer: () => "/organizer",
     operations: () => "/operations",
-    volunteer: () => "/volunteer",
+    spoc: () => "/spoc",
     support: () => "/support",
+  },
+
+  spoc: {
+    dashboard: () => "/spoc",
+    teams: () => "/spoc/teams",
+    teamDetail: (teamId: string) => `/spoc/teams/${encodeURIComponent(teamId)}`,
+    matches: () => "/spoc/matches",
+    contacts: () => "/spoc/contacts",
   },
 
   user: {
@@ -150,9 +162,9 @@ export const ROUTE_PERMISSIONS: Record<string, RouteSecurityRequirement> = {
   },
   "/admin/transport": {
     path: "/admin/transport",
-    requiredPermission: PERMISSIONS.TRANSPORT_READ,
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.TRANSPORT_STAFF],
-    name: "Transport & Shuttle Fleet Logistics",
+    requiredPermission: "",
+    allowedRoles: Object.values(ROLES),
+    name: "University Arrival Management",
   },
   "/admin/finance": {
     path: "/admin/finance",
@@ -238,6 +250,12 @@ export const ROUTE_PERMISSIONS: Record<string, RouteSecurityRequirement> = {
     allowedRoles: [ROLES.SUPER_ADMIN, ROLES.TOURNAMENT_ADMIN],
     name: "Tournament Match Control & Draws",
   },
+  "/admin/spocs": {
+    path: "/admin/spocs",
+    requiredPermission: PERMISSIONS.ADMIN_READ,
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.TOURNAMENT_ADMIN],
+    name: "Admin SPOC Coordination & Team Assignments",
+  },
   "/official": {
     path: "/official",
     requiredPermission: PERMISSIONS.SCORING_READ,
@@ -256,11 +274,29 @@ export const ROUTE_PERMISSIONS: Record<string, RouteSecurityRequirement> = {
     allowedRoles: [ROLES.SUPER_ADMIN, ROLES.OPERATIONS_STAFF, ROLES.TOURNAMENT_ADMIN],
     name: "On-Ground Operations Field Desk",
   },
-  "/volunteer": {
-    path: "/volunteer",
-    requiredPermission: "",
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.VOLUNTEER, ROLES.OPERATIONS_STAFF, ROLES.TOURNAMENT_ADMIN],
-    name: "Volunteer Mobile Field Desk",
+  "/spoc": {
+    path: "/spoc",
+    requiredPermission: PERMISSIONS.SPOC_VIEW_OWN_TEAMS,
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.SPOC],
+    name: "SPOC Student Point of Contact Hub",
+  },
+  "/spoc/teams": {
+    path: "/spoc/teams",
+    requiredPermission: PERMISSIONS.SPOC_VIEW_OWN_TEAMS,
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.SPOC],
+    name: "SPOC Assigned Teams",
+  },
+  "/spoc/matches": {
+    path: "/spoc/matches",
+    requiredPermission: PERMISSIONS.SPOC_VIEW_MATCHES,
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.SPOC],
+    name: "SPOC Match Monitoring",
+  },
+  "/spoc/contacts": {
+    path: "/spoc/contacts",
+    requiredPermission: PERMISSIONS.SPOC_VIEW_CONTACTS,
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.SPOC],
+    name: "SPOC Team & Escalation Contacts",
   },
   "/support": {
     path: "/support",

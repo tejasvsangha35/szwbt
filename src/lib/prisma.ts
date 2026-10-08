@@ -10,8 +10,11 @@ function createPrismaClient() {
   });
 }
 
-// Invalidate stale cached instance if new models like bracketSlotAssignment are missing
-if (globalForPrisma.prisma && !(globalForPrisma.prisma as any).bracketSlotAssignment) {
+// Invalidate stale cached instance if new models like spocTeamAssignment or bracketSlotAssignment are missing
+if (
+  globalForPrisma.prisma &&
+  (!(globalForPrisma.prisma as any).bracketSlotAssignment || !(globalForPrisma.prisma as any).spocTeamAssignment)
+) {
   try {
     (globalForPrisma.prisma as any).$disconnect?.();
   } catch {}
@@ -19,6 +22,8 @@ if (globalForPrisma.prisma && !(globalForPrisma.prisma as any).bracketSlotAssign
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+console.log("[PRISMA INIT] spocTeamAssignment exists?", Boolean((prisma as any).spocTeamAssignment));
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

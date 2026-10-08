@@ -169,8 +169,9 @@ async function main() {
     });
   }
 
-  // 4. Seed Support Tickets
-  const initialTickets = [
+  // 4. Tickets start empty for clean operational start
+  const initialTickets: any[] = [];
+  const _disabledOldTickets = [
     {
       ticketNumber: "TKT-2026-001",
       subject: "Aadhaar Name Spelling Discrepancy on Accreditation Card",

@@ -101,7 +101,7 @@ export default function SuperAdminUsersPage() {
     institution: "",
     email: "",
     status: "ACTIVE",
-    roles: ["VOLUNTEER"],
+    roles: ["SPOC"],
     badge: "OFFICIAL",
   });
   const [provisioning, setProvisioning] = useState(false);
@@ -221,7 +221,7 @@ export default function SuperAdminUsersPage() {
         institution: "",
         email: "",
         status: "ACTIVE",
-        roles: ["VOLUNTEER"],
+        roles: ["SPOC"],
         badge: "OFFICIAL",
       });
       fetchUsers();
@@ -366,7 +366,7 @@ export default function SuperAdminUsersPage() {
         "OPERATIONS_STAFF",
         "COMMUNICATIONS_STAFF",
         "REPORTS_STAFF",
-        "VOLUNTEER",
+        "SPOC",
         "TEAM_MANAGER",
         "PARTICIPANT",
         "SUPPORT_STAFF",

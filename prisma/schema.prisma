@@ -202,6 +202,7 @@ model User {
   auditLogs            AuditLog[]
   sessions             UserSession[]
   preference           UserPreference?
+  spocAssignments      SpocTeamAssignment[]  @relation("SpocUserAssignments")
   volunteerAssignments VolunteerAssignment[]
   volunteerTasks       VolunteerTask[]
   volunteerShifts      VolunteerShift[]
@@ -319,6 +320,8 @@ model Team {
   name               String
   institution        String
   state              String
+  stateCode          String?
+  city               String?
   managerName        String?
   managerPhone       String?
   captainName        String?
@@ -332,6 +335,7 @@ model Team {
   qrPasses           QrPass[]
   foodAssignments    FoodPackageAssignment[]
   bracketSlots       BracketSlotAssignment[]
+  spocAssignment     SpocTeamAssignment?        @relation("TeamSpocAssignment")
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 
@@ -822,6 +826,24 @@ model VolunteerIssue {
   @@index([priority])
   @@index([severity])
   @@map("volunteer_issues")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPOC (STUDENT POINT OF CONTACT) TEAM ASSIGNMENT ARCHITECTURE
+// ═══════════════════════════════════════════════════════════════════
+
+model SpocTeamAssignment {
+  id         String   @id @default(cuid())
+  spocId     String
+  spoc       User     @relation("SpocUserAssignments", fields: [spocId], references: [id], onDelete: Cascade)
+  teamId     String   @unique
+  team       Team     @relation("TeamSpocAssignment", fields: [teamId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  @@index([spocId])
+  @@index([teamId])
+  @@map("spoc_team_assignments")
 }
 
 model VenueArea {

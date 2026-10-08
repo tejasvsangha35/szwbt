@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/rbac/audit";
+import { generateNextStateTeamCode } from "@/lib/team/format";
 
 /**
  * GET /api/registration/desk
@@ -112,9 +113,8 @@ export async function POST(req: NextRequest) {
 
     // Execute Prisma Transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Generate canonical Team Code
-      const teamCount = await tx.team.count();
-      const teamCode = `TM-SZ-${String(teamCount + 101).padStart(3, "0")}`;
+      // 1. Generate canonical State Team Code (e.g. AP-01, KA-14)
+      const teamCode = await generateNextStateTeamCode(tx, cleanState);
 
       // 2. Create Team
       const team = await tx.team.create({

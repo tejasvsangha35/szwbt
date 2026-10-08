@@ -251,7 +251,7 @@ def build_pdf(filename="credentials.pdf"):
         ("Treasury Auditor", "finance@szwbt2026.edu", "szwbt2026pass", "Treasury", "/admin/finance", "Affiliation fee audit, caution deposit records, payment verification, and reconciliation."),
         ("Fleet Transport Manager", "transport@szwbt2026.edu", "szwbt2026pass", "Fleet Control", "/admin/transport", "Campus shuttle fleet, driver schedules, airport/station pickups (Zero Fee Policy)."),
         ("Hostel Logistics Officer", "hostel@szwbt2026.edu", "szwbt2026pass", "Hostel Logistics", "/admin/accommodation", "Shalmala Hostel block allocation, room and bed assignments, check-in/out timestamps."),
-        ("Arena Field Volunteer", "volunteer@szwbt2026.edu", "szwbt2026pass", "Mobile Field", "/volunteer", "Shift checklists, water/shuttle distribution, court support, and emergency SOS alerts."),
+        ("SPOC (Student Point of Contact)", "spoc@szwbt2026.edu", "szwbt2026pass", "SPOC Field", "/spoc", "Dedicated single point of contact for 4 assigned teams; monitors registration, transport, accommodation, matches, and contacts."),
     ]
     story.append(create_section_table(desk_rows))
     story.append(Spacer(1, 6))

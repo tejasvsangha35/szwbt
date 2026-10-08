@@ -356,7 +356,17 @@ export const AccommodationTable: React.FC<AccommodationTableProps> = ({
       {/* 3. UNIVERSITIES ROSTER TABLE (DON'T SHOW PLAYERS DIRECTLY) */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="space-y-3">
-        {filteredUniversities.length === 0 ? (
+        {universities.length === 0 ? (
+          <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <span className="font-pixel text-xs text-slate-500 block uppercase font-bold">
+              No accommodation assignments available
+            </span>
+            <p className="text-slate-400 text-xs mt-1">
+              Hostel rooms and beds are ready. University contingents will appear here once allocated.
+            </p>
+          </div>
+        ) : filteredUniversities.length === 0 ? (
           <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl shadow-xs">
             <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <span className="font-pixel text-xs text-slate-500 block uppercase">

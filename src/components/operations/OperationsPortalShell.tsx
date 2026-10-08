@@ -298,11 +298,11 @@ export const OperationsPortalShell: React.FC<OperationsPortalShellProps> = ({
                   </button>
 
                   <Link
-                    href="/volunteer"
+                    href="/spoc"
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-pixel-gray-300 hover:text-pixel-cream hover:bg-[#0A1628] rounded text-left transition-colors"
                   >
                     <Radio className="w-3.5 h-3.5 text-pixel-amber" />
-                    <span>Volunteer Portal</span>
+                    <span>SPOC Portal</span>
                   </Link>
 
                   <Link

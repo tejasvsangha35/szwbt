@@ -15,7 +15,7 @@ export const ROLE_MATRIX: RoleInfo[] = [
   { roleId: "transport_admin", roleName: "Transport Admin", path: "/admin/transport", badge: "FLEET CONTROL", description: "Shuttle Routes, Vehicle Tracking & Passenger Manifests", icon: "Bus" },
   { roleId: "finance_admin", roleName: "Finance Admin", path: "/admin/finance", badge: "TREASURY", description: "Payment Logs, Invoices & Fee Status Summaries", icon: "CreditCard" },
   { roleId: "organizer", roleName: "Organizer", path: "/organizer", badge: "EXECUTIVE HUD", description: "High-level Tournament Analytics & Cross-dept Overview", icon: "Briefcase" },
-  { roleId: "volunteer", roleName: "Volunteer", path: "/volunteer", badge: "MOBILE FIELD", description: "On-Ground Task List, Participant Lookup & Quick QR Pass Scanner", icon: "User" },
+  { roleId: "spoc", roleName: "SPOC", path: "/spoc", badge: "STUDENT POINT OF CONTACT", description: "Primary coordination, monitoring & escalation for assigned teams", icon: "UserCheck" },
   { roleId: "team_manager", roleName: "Team Manager", path: "/team", badge: "TEAM HUB", description: "Institution Roster, Team Match Timings & Accommodation Passes", icon: "Users" },
   { roleId: "participant", roleName: "Participant", path: "/dashboard", badge: "PLAYER HUD", description: "Player Pass, Upcoming Match Court Alerts & Digital Pass", icon: "Zap" },
   { roleId: "official", roleName: "Match Official", path: "/official", badge: "COURT UMPIRE", description: "Score Counter, Court Status Update & Match Results Posting", icon: "Activity" },

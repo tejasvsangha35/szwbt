@@ -103,7 +103,7 @@ export const config = {
     "/official/:path*",
     "/organizer/:path*",
     "/operations/:path*",
-    "/volunteer/:path*",
+    "/spoc/:path*",
     "/support/:path*",
     "/team/:path*",
     "/dashboard/:path*",

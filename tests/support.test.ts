@@ -58,16 +58,16 @@ test("SUPPORT / HELP DESK PORTAL TESTS (/support)", async (t) => {
     permissions: [PERMISSIONS.PARTICIPANT_READ],
   });
 
-  const volunteerUser = await prisma.user.findFirst({
-    where: { email: "volunteer@szwbt2026.edu" },
+  const spocUser = await prisma.user.findFirst({
+    where: { email: "spoc@szwbt2026.edu" },
   });
-  assert(volunteerUser, "Volunteer user must exist");
+  assert(spocUser, "SPOC user must exist");
 
-  const volunteerToken = createSessionToken({
-    userId: volunteerUser.id,
-    email: volunteerUser.email,
-    roles: [ROLES.VOLUNTEER],
-    permissions: [PERMISSIONS.TRANSPORT_READ],
+  const spocToken = createSessionToken({
+    userId: spocUser.id,
+    email: spocUser.email,
+    roles: [ROLES.SPOC],
+    permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
   });
 
   const foreignParticipantToken = createSessionToken({
@@ -87,9 +87,9 @@ test("SUPPORT / HELP DESK PORTAL TESTS (/support)", async (t) => {
     Authorization: `Bearer ${participantToken}`,
   };
 
-  const volunteerHeaders = {
-    Cookie: `szwbt_session=${volunteerToken}`,
-    Authorization: `Bearer ${volunteerToken}`,
+  const spocHeaders = {
+    Cookie: `szwbt_session=${spocToken}`,
+    Authorization: `Bearer ${spocToken}`,
   };
 
   const foreignParticipantHeaders = {
@@ -119,11 +119,11 @@ test("SUPPORT / HELP DESK PORTAL TESTS (/support)", async (t) => {
   });
 
   // -------------------------------------------------------------
-  // TEST 2: Unauthorized Volunteer is strictly rejected with HTTP 403 Forbidden
+  // TEST 2: Unauthorized SPOC is strictly rejected with HTTP 403 Forbidden
   // -------------------------------------------------------------
-  await t.test("Test 2: Unauthorized Volunteer is strictly rejected with HTTP 403 Forbidden", async () => {
+  await t.test("Test 2: Unauthorized SPOC is strictly rejected with HTTP 403 Forbidden", async () => {
     const req = new NextRequest("http://localhost:3000/api/support", {
-      headers: volunteerHeaders,
+      headers: spocHeaders,
     });
     const res = await getSupportOverview(req);
     assert.equal(res.status, 403);

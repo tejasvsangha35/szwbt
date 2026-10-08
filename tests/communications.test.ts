@@ -68,16 +68,16 @@ test("PARTICIPANT & TEAM COMMUNICATIONS CENTER TESTS (/admin/communications)", a
     permissions: [PERMISSIONS.PARTICIPANT_READ],
   });
 
-  const volunteerUser = await prisma.user.findFirst({
-    where: { email: "volunteer@szwbt2026.edu" },
+  const spocUser = await prisma.user.findFirst({
+    where: { email: "spoc@szwbt2026.edu" },
   });
-  assert(volunteerUser, "Volunteer user volunteer@szwbt2026.edu must exist");
+  assert(spocUser, "SPOC user spoc@szwbt2026.edu must exist");
 
-  const volunteerToken = createSessionToken({
-    userId: volunteerUser.id,
-    email: volunteerUser.email,
-    roles: [ROLES.VOLUNTEER],
-    permissions: [PERMISSIONS.TRANSPORT_READ],
+  const spocToken = createSessionToken({
+    userId: spocUser.id,
+    email: spocUser.email,
+    roles: [ROLES.SPOC],
+    permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
   });
 
   const commHeaders = {
@@ -90,9 +90,9 @@ test("PARTICIPANT & TEAM COMMUNICATIONS CENTER TESTS (/admin/communications)", a
     Authorization: `Bearer ${participantToken}`,
   };
 
-  const volunteerHeaders = {
-    Cookie: `szwbt_session=${volunteerToken}`,
-    Authorization: `Bearer ${volunteerToken}`,
+  const spocHeaders = {
+    Cookie: `szwbt_session=${spocToken}`,
+    Authorization: `Bearer ${spocToken}`,
   };
 
   let testAnnouncementId: string = "";
@@ -348,18 +348,18 @@ test("PARTICIPANT & TEAM COMMUNICATIONS CENTER TESTS (/admin/communications)", a
     const noConfRes = await postEmergency(noConfReq);
     assert.equal(noConfRes.status, 400);
 
-    // Unauthorized volunteer attempt
-    const volReq = new NextRequest("http://localhost:3000/api/admin/communications/emergency", {
+    // Unauthorized SPOC attempt
+    const spocReq = new NextRequest("http://localhost:3000/api/admin/communications/emergency", {
       method: "POST",
-      headers: { ...volunteerHeaders, "Content-Type": "application/json" },
+      headers: { ...spocHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({
         title: "Unauthorized broadcast",
-        content: "Attempt from volunteer",
+        content: "Attempt from SPOC",
         emergencyConfirmed: true,
       }),
     });
-    const volRes = await postEmergency(volReq);
-    assert.equal(volRes.status, 403);
+    const spocRes = await postEmergency(spocReq);
+    assert.equal(spocRes.status, 403);
 
     // Authorized staff with confirmation
     const authReq = new NextRequest("http://localhost:3000/api/admin/communications/emergency", {
@@ -540,12 +540,12 @@ test("PARTICIPANT & TEAM COMMUNICATIONS CENTER TESTS (/admin/communications)", a
         `Participant must NOT be authorized for '${route}'`
       );
 
-      // 5. Volunteer is NOT authorized
-      const volCheck = checkRouteAuthorization(route, [PERMISSIONS.TRANSPORT_READ], [ROLES.VOLUNTEER]);
+      // 5. SPOC is NOT authorized
+      const spocCheck = checkRouteAuthorization(route, [PERMISSIONS.SPOC_VIEW_OWN_TEAMS], [ROLES.SPOC]);
       assert.equal(
-        volCheck.authorized,
+        spocCheck.authorized,
         false,
-        `Volunteer must NOT be authorized for '${route}'`
+        `SPOC must NOT be authorized for '${route}'`
       );
     }
   });

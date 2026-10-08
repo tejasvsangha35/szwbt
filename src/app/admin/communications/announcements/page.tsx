@@ -222,7 +222,7 @@ export default function AnnouncementsListPage() {
                   { label: "ALL AUDIENCES", value: "ALL" },
                   { label: "PARTICIPANTS", value: "PARTICIPANTS" },
                   { label: "TEAM MANAGERS", value: "TEAM_MANAGERS" },
-                  { label: "VOLUNTEERS", value: "VOLUNTEERS" },
+                  { label: "SPOCS", value: "SPOCS" },
                   { label: "MATCH OFFICIALS", value: "MATCH_OFFICIALS" },
                   { label: "ORGANIZERS", value: "ORGANIZERS" },
                   { label: "SUPPORT STAFF", value: "SUPPORT_STAFF" },

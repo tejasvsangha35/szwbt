@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
     } else if (role) {
       rolesToAssign.push(role);
     } else {
-      rolesToAssign.push(ROLES.VOLUNTEER);
+      rolesToAssign.push(ROLES.SPOC);
     }
 
     // Role Escalation Safety Guard: Only an existing SUPER_ADMIN can assign SUPER_ADMIN role

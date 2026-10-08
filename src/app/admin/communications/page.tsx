@@ -624,7 +624,7 @@ export default function CommunicationsAdminPage() {
                 </p>
                 <p className="text-xs text-pixel-gray-300 max-w-2xl leading-relaxed">
                   Real-time broadcast dispatcher for participants, university institutions, tournament officials,
-                  and field volunteers. Synchronized delivery via In-App Noticeboards, SMTP relays, and emergency telemetry.
+                  and SPOC coordinators. Synchronized delivery via In-App Noticeboards, SMTP relays, and emergency telemetry.
                 </p>
               </div>
 
@@ -1086,7 +1086,7 @@ export default function CommunicationsAdminPage() {
                   <option value="ACCOMMODATION">ACCOMMODATION</option>
                   <option value="TRANSPORT">TRANSPORT</option>
                   <option value="VENUE">VENUE</option>
-                  <option value="VOLUNTEER">VOLUNTEER</option>
+                  <option value="SPOC">SPOC COORDINATION</option>
                   <option value="SAFETY">SAFETY</option>
                   <option value="EMERGENCY">EMERGENCY</option>
                 </select>
@@ -1113,7 +1113,7 @@ export default function CommunicationsAdminPage() {
                   <option value="PARTICIPANTS">PARTICIPANTS</option>
                   <option value="TEAMS">TEAM MANAGERS</option>
                   <option value="OFFICIALS">MATCH OFFICIALS</option>
-                  <option value="VOLUNTEERS">VOLUNTEERS</option>
+                  <option value="SPOCS">SPOCs</option>
                   <option value="OPERATIONS_STAFF">OPERATIONS STAFF</option>
                 </select>
               </div>
@@ -1563,7 +1563,7 @@ export default function CommunicationsAdminPage() {
                       <option value="ACCOMMODATION">ACCOMMODATION</option>
                       <option value="TRANSPORT">TRANSPORT</option>
                       <option value="VENUE">VENUE</option>
-                      <option value="VOLUNTEER">VOLUNTEER</option>
+                      <option value="SPOC">SPOC COORDINATION</option>
                       <option value="STAFF">STAFF</option>
                       <option value="SAFETY">SAFETY</option>
                       <option value="EMERGENCY">EMERGENCY</option>
@@ -1599,7 +1599,7 @@ export default function CommunicationsAdminPage() {
                       <option value="PARTICIPANTS">ATHLETES / PARTICIPANTS</option>
                       <option value="TEAMS">TEAM MANAGERS</option>
                       <option value="OFFICIALS">MATCH OFFICIALS</option>
-                      <option value="VOLUNTEERS">VOLUNTEERS</option>
+                      <option value="SPOCS">SPOCs (STUDENT POINT OF CONTACT)</option>
                       <option value="OPERATIONS_STAFF">OPERATIONS STAFF</option>
                       <option value="REGISTRATION_STAFF">REGISTRATION DESK</option>
                       <option value="ACCOMMODATION_STAFF">ACCOMMODATION DESK</option>
@@ -1840,7 +1840,7 @@ export default function CommunicationsAdminPage() {
                 >
                   <option value="ALL">ALL PARTICIPANTS & ARENA PERSONNEL</option>
                   <option value="TEAMS">TEAM MANAGERS & ATHLETES</option>
-                  <option value="VOLUNTEERS">FIELD VOLUNTEERS</option>
+                  <option value="SPOCS">SPOCs (STUDENT POINT OF CONTACT)</option>
                   <option value="OFFICIALS">MATCH OFFICIALS</option>
                 </select>
               </div>

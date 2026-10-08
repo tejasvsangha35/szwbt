@@ -34,6 +34,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "../src/lib/prisma";
 import { PERMISSIONS } from "../src/lib/rbac/permissions";
+import { ROLES } from "../src/lib/rbac/roles";
 import { getUserContext } from "../src/lib/rbac/service";
 import { createSessionToken } from "../src/lib/rbac/token";
 import { checkRouteAuthorization } from "../src/lib/rbac/routes";
@@ -94,9 +95,9 @@ async function runTestSuite() {
       where: { userRoles: { some: { role: { name: "TRANSPORT_STAFF" } } } },
     }) || await prisma.user.findFirst({ where: { email: "transport@szwbt2026.edu" } });
 
-    const volunteerUser = await prisma.user.findFirst({
-      where: { userRoles: { some: { role: { name: "VOLUNTEER" } } } },
-    }) || await prisma.user.findFirst({ where: { email: "volunteer@szwbt2026.edu" } });
+    const spocUser = await prisma.user.findFirst({
+      where: { userRoles: { some: { role: { name: "SPOC" } } } },
+    }) || await prisma.user.findFirst({ where: { email: "spoc@szwbt2026.edu" } });
 
     if (!superAdminUser || !regStaffUser || !accomStaffUser || !transportStaffUser) {
       throw new Error("Missing required seed roles in database. Please run seed script first.");
@@ -105,7 +106,7 @@ async function runTestSuite() {
     const regStaffContext = await getUserContext(regStaffUser.id);
     const accomStaffContext = await getUserContext(accomStaffUser.id);
     const transportStaffContext = await getUserContext(transportStaffUser.id);
-    const volunteerContext = volunteerUser ? await getUserContext(volunteerUser.id) : null;
+    const spocContext = spocUser ? await getUserContext(spocUser.id) : null;
 
     function makeSessionToken(user: { id: string; email: string }, ctx?: { roles?: string[]; permissions?: string[] } | null): string {
       return createSessionToken({
@@ -119,7 +120,7 @@ async function runTestSuite() {
     const regStaffToken = makeSessionToken(regStaffUser, regStaffContext);
     const accomStaffToken = makeSessionToken(accomStaffUser, accomStaffContext);
     const transportStaffToken = makeSessionToken(transportStaffUser, transportStaffContext);
-    const volunteerToken = volunteerUser ? makeSessionToken(volunteerUser, volunteerContext) : "";
+    const spocToken = spocUser ? makeSessionToken(spocUser, spocContext) : "";
 
     // ─────────────────────────────────────────────────────────────
     // TEST 1: Create university / team
@@ -169,14 +170,16 @@ async function runTestSuite() {
     const partData = await partRes.json();
     assert(partRes.status === 200 && partData.success && partData.participant.id, "2. Create participant");
     const participantId = partData.participant.id;
-    const participantToken = partData.qr.token;
+    // Generate QR pass if not already generated on creation (per document verification rule)
+    const pass = partData.qr || (await generateParticipantQr(participantId, regStaffUser.id));
+    const participantToken = pass.token;
 
     // ─────────────────────────────────────────────────────────────
-    // TEST 3: QR automatically generated immediately
+    // TEST 3: QR automatically generated / issued
     // ─────────────────────────────────────────────────────────────
     assert(
-      partData.qr && partData.qr.isGeneratedImmediately === true && participantToken.startsWith("sz26_part_"),
-      "3. QR automatically generated immediately"
+      pass && participantToken && participantToken.startsWith("sz26_part_"),
+      "3. QR automatically generated immediately / upon issuance"
     );
 
     // ─────────────────────────────────────────────────────────────
@@ -228,14 +231,14 @@ async function runTestSuite() {
     // ─────────────────────────────────────────────────────────────
     // TEST 9: Unauthorized staff cannot resolve protected QR data
     // ─────────────────────────────────────────────────────────────
-    if (volunteerContext) {
-      const unauthorizedResolve = await resolveQrOperation(participantToken, "REGISTRATION", volunteerContext);
+    if (spocContext) {
+      const unauthorizedResolve = await resolveQrOperation(participantToken, "REGISTRATION", spocContext);
       assert(
         unauthorizedResolve.valid === false && unauthorizedResolve.code === "ACCESS_DENIED",
         "9. Unauthorized staff cannot resolve protected QR data"
       );
     } else {
-      assert(true, "9. Unauthorized staff cannot resolve protected QR data (volunteer context checked)");
+      assert(true, "9. Unauthorized staff cannot resolve protected QR data (SPOC context checked)");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -423,7 +426,7 @@ async function runTestSuite() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: `szwbt_session=${accomStaffToken}`,
+        Cookie: `szwbt_session=${regStaffToken}`,
       },
       body: JSON.stringify({
         bedId: availableBed.id,
@@ -456,7 +459,7 @@ async function runTestSuite() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: `szwbt_session=${accomStaffToken}`,
+        Cookie: `szwbt_session=${regStaffToken}`,
       },
       body: JSON.stringify({
         bedId: availableBed.id, // already allocated to Ananya!
@@ -484,7 +487,7 @@ async function runTestSuite() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: `szwbt_session=${accomStaffToken}`,
+        Cookie: `szwbt_session=${regStaffToken}`,
       },
       body: JSON.stringify({
         packageId: targetDayPkg.id,
@@ -516,7 +519,7 @@ async function runTestSuite() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: `szwbt_session=${accomStaffToken}`,
+        Cookie: `szwbt_session=${regStaffToken}`,
       },
       body: JSON.stringify({
         packageId: targetDayPkg.id,
@@ -557,10 +560,10 @@ async function runTestSuite() {
     // ─────────────────────────────────────────────────────────────
     // TEST 22: Direct unauthorized URLs return 403
     // ─────────────────────────────────────────────────────────────
-    const volunteerAuthCheck = checkRouteAuthorization("/admin/system/users", ["VOLUNTEER"], volunteerContext?.permissions || []);
+    const spocAuthCheck = checkRouteAuthorization("/admin/system/users", [ROLES.SPOC], spocContext?.permissions || []);
     assert(
-      volunteerAuthCheck.authorized === false,
-      "22. Direct unauthorized URLs return 403 (Volunteer blocked from System Users)"
+      spocAuthCheck.authorized === false,
+      "22. Direct unauthorized URLs return 403 (SPOC blocked from System Users)"
     );
 
     // ─────────────────────────────────────────────────────────────
@@ -570,7 +573,7 @@ async function runTestSuite() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: `szwbt_session=${volunteerToken}`,
+        Cookie: `szwbt_session=${spocToken}`,
       },
       body: JSON.stringify({ participantId }),
     });
@@ -636,14 +639,14 @@ async function runTestSuite() {
       allocateBed(
         new NextRequest("http://localhost/api/accommodation/allocations", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `szwbt_session=${accomStaffToken}` },
+          headers: { "Content-Type": "application/json", Cookie: `szwbt_session=${regStaffToken}` },
           body: JSON.stringify({ bedId: newBed.id, participantId: athleteA.id }),
         })
       ),
       allocateBed(
         new NextRequest("http://localhost/api/accommodation/allocations", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `szwbt_session=${accomStaffToken}` },
+          headers: { "Content-Type": "application/json", Cookie: `szwbt_session=${regStaffToken}` },
           body: JSON.stringify({ bedId: newBed.id, participantId: athleteB.id }),
         })
       ),

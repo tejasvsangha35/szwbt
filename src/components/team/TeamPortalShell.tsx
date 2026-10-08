@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
 import { useAuth } from "@/lib/rbac/useAuth";
+import { formatTeamCode } from "@/lib/team/format";
 
 export interface AuthorizedTeamOption {
   id: string;
@@ -229,7 +230,12 @@ export const TeamPortalShell: React.FC<TeamPortalShellProps> = ({
                         }`}
                       >
                         <div className="truncate">
-                          <p className="font-pixel text-xs text-pixel-cream">{t.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] text-pixel-amber font-bold">
+                              {formatTeamCode(t.teamCode)}
+                            </span>
+                            <p className="font-pixel text-xs text-pixel-cream truncate">{t.name}</p>
+                          </div>
                           <p className="font-mono text-[10px] text-pixel-muted truncate">{t.institution}</p>
                         </div>
                         <PixelBadge variant={getStatusBadgeVariant(t.status)}>

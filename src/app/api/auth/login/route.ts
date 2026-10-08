@@ -31,7 +31,9 @@ const DEFAULT_SYSTEM_ROLES: Record<string, string[]> = {
   "reports@szwbt2026.edu": [ROLES.REPORTS_STAFF],
   "team@szwbt2026.edu": [ROLES.TEAM_MANAGER],
   "player@szwbt2026.edu": [ROLES.PARTICIPANT],
-  "volunteer@szwbt2026.edu": [ROLES.VOLUNTEER],
+  "spoc@szwbt2026.edu": [ROLES.SPOC],
+  "spoc1@szwbt2026.edu": [ROLES.SPOC],
+  "spoc2@szwbt2026.edu": [ROLES.SPOC],
   "support@szwbt2026.edu": [ROLES.SUPPORT_STAFF],
   "priya.multirole@szwbt2026.edu": [ROLES.REGISTRATION_STAFF, ROLES.ACCOMMODATION_STAFF],
   "lead.multirole@szwbt2026.edu": [ROLES.TOURNAMENT_ADMIN, ROLES.FINANCE_STAFF],
@@ -54,7 +56,7 @@ const LEGACY_ROLE_MAP: Record<string, string> = {
   FINANCE_STAFF: ROLES.FINANCE_STAFF,
   DOCUMENT_SCANNER: ROLES.REGISTRATION_STAFF,
   ORGANIZER: ROLES.ORGANIZER,
-  VOLUNTEER: ROLES.VOLUNTEER,
+  SPOC: ROLES.SPOC,
   TEAM_MANAGER: ROLES.TEAM_MANAGER,
   PARTICIPANT: ROLES.PARTICIPANT,
   SUPPORT_STAFF: ROLES.SUPPORT_STAFF,
@@ -79,7 +81,7 @@ async function autoAssignUserRoles(
     else if (targetUrl.startsWith("/register")) rolesToAssign.push(ROLES.REGISTRATION_STAFF);
     else if (targetUrl.startsWith("/team")) rolesToAssign.push(ROLES.TEAM_MANAGER);
     else if (targetUrl.startsWith("/dashboard")) rolesToAssign.push(ROLES.PARTICIPANT);
-    else if (targetUrl.startsWith("/volunteer")) rolesToAssign.push(ROLES.VOLUNTEER);
+    else if (targetUrl.startsWith("/spoc")) rolesToAssign.push(ROLES.SPOC);
     else if (targetUrl.startsWith("/support")) rolesToAssign.push(ROLES.SUPPORT_STAFF);
     else if (targetUrl.startsWith("/organizer")) rolesToAssign.push(ROLES.ORGANIZER);
     else if (targetUrl.startsWith("/admin/finance")) rolesToAssign.push(ROLES.FINANCE_STAFF);

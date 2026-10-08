@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/rbac/audit";
 import { UserContext } from "@/lib/rbac/service";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getTeamCodeSearchCandidates } from "@/lib/team/format";
 
 export interface QrResolutionResult {
   valid: boolean;
@@ -326,6 +327,7 @@ export async function resolveQrOperation(
           OR: [
             { teamQrToken: token },
             { teamCode: { equals: token, mode: "insensitive" } },
+            { teamCode: { in: getTeamCodeSearchCandidates(token) } },
             { id: token },
           ],
         },

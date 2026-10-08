@@ -104,12 +104,12 @@ export async function POST(req: NextRequest) {
         assignedStaffName = targetUser.name;
       }
     } else {
-      // Find an active volunteer or assign to current user
-      const defaultVol = await prisma.user.findFirst({
-        where: { userRoles: { some: { role: { name: "VOLUNTEER" } } } },
+      // Find an active operations staff/SPOC or assign to current user
+      const defaultStaff = await prisma.user.findFirst({
+        where: { userRoles: { some: { role: { name: { in: ["OPERATIONS_STAFF", "SPOC"] } } } } },
       });
-      targetUserId = defaultVol ? defaultVol.id : authResult.context.user.id;
-      assignedStaffName = defaultVol ? defaultVol.name : authResult.context.user.name;
+      targetUserId = defaultStaff ? defaultStaff.id : authResult.context.user.id;
+      assignedStaffName = defaultStaff ? defaultStaff.name : authResult.context.user.name;
     }
 
     const task = await prisma.volunteerTask.create({

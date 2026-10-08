@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         userRoles: {
           some: {
             role: {
-              name: { in: ["VOLUNTEER", "OPERATIONS_STAFF"] },
+              name: { in: ["OPERATIONS_STAFF", "SPOC"] },
             },
           },
         },

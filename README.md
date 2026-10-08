@@ -92,8 +92,7 @@ The interface merges the nostalgic energy of classic 90s Japanese arcade games (
 | **Help Desk Lead** | `support@szwbt2026.edu` | Support Command | `/support` |
 | **Reports & Analytics Lead** | `reports@szwbt2026.edu` | Analytics Command | `/admin/reports` |
 | **University Team Manager** | `team@szwbt2026.edu` | University Desk | `/team` |
-| **Accredited Athlete / Player** | `player@szwbt2026.edu` | Player HUD | `/dashboard` |
-| **Field Volunteer** | `volunteer@szwbt2026.edu` | Mobile Field | `/volunteer` |
+| **SPOC (Student Point of Contact)** | `spoc@szwbt2026.edu` | SPOC Field Command | `/spoc` |
 
 *(Detailed credentials and multi-role accounts are documented in [`credentials.md`](credentials.md))*
 
@@ -117,8 +116,8 @@ SZWBT/
 │   │   ├── operations/          # TechOps Court Command
 │   │   ├── register/            # Contingent Intake Wizard
 │   │   ├── scanner/             # QR & Document Scanner
+│   │   ├── spoc/                # SPOC (Student Point of Contact) Operations
 │   │   ├── team/                # University Team Manager Portal
-│   │   ├── volunteer/           # Field Volunteer Terminal
 │   │   └── ...                  # Public and auxiliary routes
 │   ├── components/              # Modular UI Component Library
 │   │   ├── accommodation/       # 4-Bed Room Cards, Allocation Drawer
@@ -213,7 +212,7 @@ npm run test:team            # Team manager contingent workflows
 npm run test:participant     # Athlete HUD, QR verification
 npm run test:organizer       # Secretariat & executive controls
 npm run test:operations      # TechOps, queue flow, walkovers
-npm run test:volunteer       # Field volunteer tasks & SOS
+npm run test:spoc            # SPOC assigned 4 teams & data isolation
 npm run test:communications  # Announcements & delivery logs
 npm run test:support         # Support desk tickets & notes
 npm run test:reports         # Analytics & CSV export security

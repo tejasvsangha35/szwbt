@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PortalQrCode } from "@/components/qr/PortalQrCode";
 import { PassQrSvg } from "@/components/qr/PassQrSvg";
 import { compressUploadedFile } from "@/lib/fileCompressor";
+import { formatTeamCode } from "@/lib/team/format";
 
 import {
   Shield, Camera, Upload, CheckCircle2, Plus, Trash2, RefreshCw,
@@ -583,33 +584,43 @@ export default function RegistrationDeskPage() {
       const res = await fetch("/api/participants");
       const data = await res.json();
       if (data.success && Array.isArray(data.participants)) {
-        const mapped: ParticipantRecord[] = data.participants.map((p: any) => ({
-          id: p.id,
-          playerId: p.playerId,
-          name: p.name,
-          email: p.email || "—",
-          phone: p.phone,
-          state: p.state || selectedState,
-          institution: p.institution || p.institutionRel?.name || "University",
-          institutionId: p.institutionId,
-          category: p.category || "Women's Team",
-          role: p.teamMemberships?.[0]?.role || p.role || "ATHLETE",
-          photoUrl: p.photoUrl,
-          qrToken: (p.documentsStatus === "VERIFIED" || (p.documents?.length > 0 && p.documents.every((d: any) => d.status === "VERIFIED"))) ? (p.qrToken || p.qrPasses?.[0]?.token || null) : null,
-          documentsStatus: p.documentsStatus || (p.documents?.length > 0 && p.documents.every((d: any) => d.status === "VERIFIED") ? "VERIFIED" : p.documents?.length > 0 ? "PENDING" : "DOCUMENTS_PENDING"),
-          documents: p.documents || [],
-          paymentStatus: "PAID",
-          paymentMethod: p.payments?.[0]?.method || "CASH",
-          utr: p.payments?.[0]?.utr,
-          amountPaid: p.payments?.[0]?.amount || 2500,
-          accommodationStatus: p.bedAllocations?.length > 0 ? "ALLOCATED" : "NOT_ALLOCATED",
-          hostel: p.bedAllocations?.[0]?.bed?.room?.hostel?.name || "—",
-          floor: p.bedAllocations?.[0]?.bed?.room?.floor?.name || "—",
-          room: p.bedAllocations?.[0]?.bed?.room?.roomNumber || p.room || "—",
-          bed: p.bedAllocations?.[0]?.bed?.bedNumber || "—",
-          registrationStatus: p.status === "ACTIVE" || p.status === "APPROVED" ? "COMPLETED" : "IN_PROGRESS",
-          registeredAt: p.createdAt ? new Date(p.createdAt).toLocaleString() : new Date().toLocaleString(),
-        }));
+        const mapped: ParticipantRecord[] = data.participants.map((p: any) => {
+          const role = p.teamMemberships?.[0]?.role || p.role || "ATHLETE";
+          const isManager = role === "MANAGER" || p.category === "Contingent Management";
+          const isVerified =
+            (isManager && (p.qrToken || p.qrPasses?.[0]?.token || p.documentsStatus === "VERIFIED" || p.status === "APPROVED")) ||
+            (p.documentsStatus === "VERIFIED" || (p.documents?.length > 0 && p.documents.every((d: any) => d.status === "VERIFIED")));
+          const verifiedQrToken = isVerified ? (p.qrToken || p.qrPasses?.[0]?.token || null) : null;
+          const computedDocStatus = isVerified ? "VERIFIED" : (p.documents?.length > 0 ? "PENDING" : "DOCUMENTS_PENDING");
+
+          return {
+            id: p.id,
+            playerId: p.playerId,
+            name: p.name,
+            email: p.email || "—",
+            phone: p.phone,
+            state: p.state || selectedState,
+            institution: p.institution || p.institutionRel?.name || "University",
+            institutionId: p.institutionId,
+            category: p.category || "Women's Team",
+            role,
+            photoUrl: p.photoUrl,
+            qrToken: verifiedQrToken,
+            documentsStatus: computedDocStatus,
+            documents: p.documents || [],
+            paymentStatus: "PAID",
+            paymentMethod: p.payments?.[0]?.method || "CASH",
+            utr: p.payments?.[0]?.utr,
+            amountPaid: p.payments?.[0]?.amount || 2500,
+            accommodationStatus: p.bedAllocations?.length > 0 ? "ALLOCATED" : "NOT_ALLOCATED",
+            hostel: p.bedAllocations?.[0]?.bed?.room?.hostel?.name || "—",
+            floor: p.bedAllocations?.[0]?.bed?.room?.floor?.name || "—",
+            room: p.bedAllocations?.[0]?.bed?.room?.roomNumber || p.room || "—",
+            bed: p.bedAllocations?.[0]?.bed?.bedNumber || "—",
+            registrationStatus: p.status === "ACTIVE" || p.status === "APPROVED" ? "COMPLETED" : "IN_PROGRESS",
+            registeredAt: p.createdAt ? new Date(p.createdAt).toLocaleString() : new Date().toLocaleString(),
+          };
+        });
         setParticipantsList(mapped);
       }
     } catch (err) {
@@ -822,6 +833,8 @@ export default function RegistrationDeskPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
+  const [verifyingAll, setVerifyingAll] = useState<boolean>(false);
+
   // ─────────────────────────────────────────────────────────────
   // VERIFY DOCUMENTS & ISSUE QR PASS HANDLER
   // ─────────────────────────────────────────────────────────────
@@ -836,15 +849,75 @@ export default function RegistrationDeskPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         showToast("✓ Verification successful! Official accreditation QR pass generated.", "success");
+        setParticipantsList((prev) =>
+          prev.map((p) =>
+            p.id === participantId
+              ? {
+                  ...p,
+                  documentsStatus: "VERIFIED",
+                  qrToken: data.qrToken || p.qrToken,
+                }
+              : p
+          )
+        );
         await fetchParticipants();
         if (docUploadParticipant && docUploadParticipant.id === participantId) {
           setDocUploadParticipant(null);
+        }
+        if (selectedParticipantForPass && selectedParticipantForPass.id === participantId) {
+          setSelectedParticipantForPass((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  documentsStatus: "VERIFIED",
+                  qrToken: data.qrToken || prev.qrToken,
+                }
+              : null
+          );
         }
       } else {
         alert(data.error || "Failed to verify documents.");
       }
     } catch (err: any) {
       alert(`Verification error: ${err.message}`);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // VERIFY ALL ATHLETES IN TEAM CONTINGENT & GENERATE ALL QR PASSES
+  // ─────────────────────────────────────────────────────────────
+  const handleVerifyAllAthletesForTeam = async (teamId?: string, participantIds?: string[]) => {
+    try {
+      setVerifyingAll(true);
+      showToast("Verifying documents & generating official accreditation QR passes...", "info");
+      const res = await fetch("/api/registration/documents/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, participantIds }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast("✓ All documents verified! Official accreditation QR passes generated.", "success");
+        await fetchParticipants();
+        if (selectedParticipantForPass && (participantIds?.includes(selectedParticipantForPass.id) || teamId)) {
+          const matchResult = data.results?.find((r: any) => r.participantId === selectedParticipantForPass.id);
+          setSelectedParticipantForPass((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  documentsStatus: "VERIFIED",
+                  qrToken: matchResult?.qrToken || prev.qrToken,
+                }
+              : null
+          );
+        }
+      } else {
+        alert(data.error || "Failed to verify squad documents.");
+      }
+    } catch (err: any) {
+      alert(`Verification error: ${err.message}`);
+    } finally {
+      setVerifyingAll(false);
     }
   };
 
@@ -969,46 +1042,39 @@ export default function RegistrationDeskPage() {
       return;
     }
 
-    // Validate Manager (if name is entered or any manager details are provided)
-    if (managerName.trim() || managerPhone.trim() || managerEmail.trim() || managerPhotoUrl) {
-      if (!managerName.trim()) {
-        alert("Please enter Full Name for Team Manager.");
-        return;
-      }
-      if (!managerPhone.trim()) {
-        alert("Please enter Mobile Number for Team Manager.");
-        return;
-      }
-      if (!managerEmail.trim()) {
-        alert("Please enter Email Address for Team Manager.");
-        return;
-      }
+    // Validate Team Manager (only Full Name and Contact Number are compulsory; Email, Photo, and Documents are optional)
+    if (!managerName.trim()) {
+      alert("Please enter Full Name for Team Manager (Compulsory).");
+      return;
+    }
+    if (!managerPhone.trim()) {
+      alert("Please enter Contact / Mobile Number for Team Manager (Compulsory).");
+      return;
+    }
+    if (managerEmail.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(managerEmail.trim())) {
-        alert("Please enter a valid Email Address for Team Manager.");
-        return;
-      }
-      if (!managerPhotoUrl) {
-        alert("Photograph is mandatory for Team Manager. Please capture or upload manager photo.");
+        alert("Please enter a valid Email Address for Team Manager, or leave it blank.");
         return;
       }
     }
+    // Note: Photograph and 1 Combined PDF documents are completely optional for Team Manager.
 
-    // Validate all 5 athletes
+    // Validate all 5 squad athletes (ALL details are strictly compulsory: Name, Mobile, Email, Photo, and Combined PDF Dossier)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     for (let i = 0; i < teamAthletes.length; i++) {
       const ath = teamAthletes[i];
       const slotName = i === 0 ? "Athlete 1 (Team Captain)" : `Athlete ${i + 1}`;
       if (!ath.name.trim()) {
-        alert(`Please enter Full Name for ${slotName}.`);
+        alert(`Please enter Full Name for ${slotName} (Compulsory).`);
         return;
       }
       if (!ath.mobile.trim()) {
-        alert(`Please enter Mobile Number for ${slotName}.`);
+        alert(`Please enter Mobile Number for ${slotName} (Compulsory).`);
         return;
       }
       if (!ath.email.trim()) {
-        alert(`Please enter Email Address for ${slotName}.`);
+        alert(`Please enter Email Address for ${slotName} (Compulsory).`);
         return;
       }
       if (!emailRegex.test(ath.email.trim())) {
@@ -1016,7 +1082,11 @@ export default function RegistrationDeskPage() {
         return;
       }
       if (!ath.photoUrl) {
-        alert(`Photograph is mandatory for ${slotName}. Please take a photo or upload one.`);
+        alert(`Photograph is compulsory for ${slotName}. Please capture or upload a photo.`);
+        return;
+      }
+      if (!ath.pdfDataUrl) {
+        alert(`Documents (1 Combined PDF: ID Card, SSLC, PUC / Eligibility) are compulsory for ${slotName}. Please upload the combined PDF dossier.`);
         return;
       }
     }
@@ -1156,7 +1226,7 @@ export default function RegistrationDeskPage() {
       setCreatedTeam(createdObj);
       const allToAppend = mappedManager ? [mappedManager, ...mappedParticipants] : mappedParticipants;
       setParticipantsList((prev) => [...allToAppend, ...prev]);
-      showToast(`FULL TEAM REGISTERED ✓ ${teamData.team.teamCode} (5 ATHLETES + MANAGER)`);
+      showToast(`FULL TEAM REGISTERED ✓ ${formatTeamCode(teamData.team.teamCode)} (5 ATHLETES + MANAGER)`);
     } catch (err: any) {
       alert(`Error registering team contingent: ${err.message}`);
     } finally {
@@ -1397,7 +1467,7 @@ export default function RegistrationDeskPage() {
                           TEAM CONTINGENT REGISTERED ✓
                         </span>
                         <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-[#FF5A16] font-mono text-xs font-bold">
-                          {createdTeam.team.teamCode}
+                          {formatTeamCode(createdTeam.team.teamCode)}
                         </span>
                       </div>
                       <h2 className="font-rajdhani text-2xl font-black text-slate-900 uppercase mt-1">
@@ -1500,11 +1570,16 @@ export default function RegistrationDeskPage() {
                           )}
                         </div>
 
-                        {liveManager.documentsStatus === "VERIFIED" && liveManager.qrToken ? (
+                        {liveManager.qrToken ? (
                           <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-2xs">
                             <PortalQrCode
                               value={liveManager.qrToken}
-                              size={90}
+                              participantName={liveManager.name}
+                              institution={liveManager.institution || createdTeam.team.institution}
+                              roleOrType="MANAGER"
+                              designation="MANAGER"
+                              referenceCode={liveManager.playerId}
+                              size={95}
                               showActions={false}
                             />
                           </div>
@@ -1512,11 +1587,21 @@ export default function RegistrationDeskPage() {
                           <div className="w-20 h-20 bg-slate-100 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-1">
                             <Lock className="w-4 h-4 text-amber-500 mb-0.5" />
                             <span className="text-[9px] font-mono font-bold text-slate-700">QR LOCKED</span>
-                            <span className="text-[8px] text-slate-400">Verify in Tab 03</span>
+                            <span className="text-[8px] text-slate-400">Click to approve</span>
                           </div>
                         )}
 
                         <div className="flex flex-col gap-2">
+                          {!liveManager.qrToken && (
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyDocumentsForParticipant(liveManager.id)}
+                              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-xs font-black uppercase rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> APPROVE &amp; ISSUE QR
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => {
@@ -1528,10 +1613,10 @@ export default function RegistrationDeskPage() {
                                 ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-black"
                                 : "bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-xs"
                             }`}
-                            title="Upload or manage manager 1 Combined PDF dossier"
+                            title="Upload or manage manager 1 Combined PDF dossier (Optional)"
                           >
                             <FileText className="w-3.5 h-3.5" />
-                            {liveManager.documentsStatus === "VERIFIED" ? "1 PDF DOSSIER ✓" : "UPLOAD 1 PDF"}
+                            {liveManager.documentsStatus === "VERIFIED" ? "1 PDF DOSSIER ✓" : "UPLOAD 1 PDF (OPTIONAL)"}
                           </button>
 
                           <button
@@ -1547,10 +1632,53 @@ export default function RegistrationDeskPage() {
                   );
                 })()}
 
+                {/* SQUAD VERIFICATION & QR PASS GENERATION BANNER */}
+                <div className="p-4 bg-white border-2 border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-[#FF5A16]" />
+                      <h3 className="font-rajdhani text-base font-black uppercase text-slate-900">
+                        CONTINGENT VERIFICATION &amp; QR ACCREDITATION
+                      </h3>
+                      <span className={`px-2.5 py-0.5 rounded-full font-rajdhani text-xs font-bold ${
+                        createdTeam.participants.every((p) => getLiveParticipant(p).documentsStatus === "VERIFIED")
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300 font-black"
+                          : "bg-amber-100 text-amber-800 border border-amber-300 font-bold"
+                      }`}>
+                        {createdTeam.participants.filter((p) => getLiveParticipant(p).documentsStatus === "VERIFIED").length}/5 ATHLETES VERIFIED
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-sans mt-0.5">
+                      Once all athlete documents are uploaded and verified, official tournament accreditation QR codes are generated.
+                    </p>
+                  </div>
+
+                  {createdTeam.participants.some((p) => getLiveParticipant(p).documentsStatus !== "VERIFIED") && (
+                    <button
+                      type="button"
+                      disabled={verifyingAll}
+                      onClick={() => handleVerifyAllAthletesForTeam(createdTeam.team.id, createdTeam.participants.map((p) => p.id))}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-rajdhani text-xs font-black uppercase rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                    >
+                      {verifyingAll ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                          VERIFYING ALL ATHLETES...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          VERIFY ALL ATHLETE DOCUMENTS &amp; ISSUE QR PASSES (5/5)
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
                 {/* 5 Registered Athletes Cards with Photos and QR Tokens */}
                 <div className="space-y-3 pt-2">
                   <h3 className="font-rajdhani text-sm font-black text-slate-800 uppercase tracking-wider">
-                    ACCREDITED SQUAD ATHLETES (5 PASSES GENERATED)
+                    ACCREDITED SQUAD ATHLETES (5 PASSES GENERATED ON DOCUMENT VERIFICATION)
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -1565,7 +1693,9 @@ export default function RegistrationDeskPage() {
                             <span className={idx === 0 ? "text-[#FF5A16]" : "text-slate-500"}>
                               {idx === 0 ? "★ CAPTAIN" : `ATHLETE 0${idx + 1}`}
                             </span>
-                            <span className="text-emerald-700">✓ SAVED</span>
+                            <span className={liveAth.documentsStatus === "VERIFIED" ? "text-emerald-700 font-bold" : "text-amber-600"}>
+                              {liveAth.documentsStatus === "VERIFIED" ? "✓ VERIFIED" : "PENDING"}
+                            </span>
                           </div>
 
                           {/* Athlete Photo */}
@@ -1594,6 +1724,11 @@ export default function RegistrationDeskPage() {
                             <div className="bg-white p-2 rounded-xl border border-slate-300 shadow-2xs">
                               <PortalQrCode
                                 value={liveAth.qrToken}
+                                participantName={liveAth.name}
+                                institution={liveAth.institution || createdTeam.team.institution}
+                                roleOrType={idx === 0 ? "CAPTAIN" : "ATHLETE"}
+                                designation={idx === 0 ? "TEAM CAPTAIN" : "ATHLETE"}
+                                referenceCode={liveAth.playerId}
                                 size={100}
                                 showActions={false}
                               />
@@ -1602,7 +1737,7 @@ export default function RegistrationDeskPage() {
                             <div className="w-24 h-24 bg-slate-100 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-1.5">
                               <Lock className="w-5 h-5 text-amber-500 mb-1" />
                               <span className="text-[10px] font-mono font-bold text-slate-700">QR LOCKED</span>
-                              <span className="text-[8px] text-slate-400">Verify in Tab 03</span>
+                              <span className="text-[8px] text-slate-400">Verify docs to unlock</span>
                             </div>
                           )}
 
@@ -1611,6 +1746,17 @@ export default function RegistrationDeskPage() {
                           </div>
 
                           <div className="flex flex-col gap-1.5 w-full">
+                            {liveAth.documentsStatus !== "VERIFIED" && (
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyDocumentsForParticipant(liveAth.id)}
+                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-[11px] font-black uppercase rounded-lg shadow-2xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                                title="Verify athlete documents and generate official QR accreditation pass"
+                              >
+                                <Check className="w-3.5 h-3.5" /> VERIFY &amp; ISSUE QR
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -1625,7 +1771,7 @@ export default function RegistrationDeskPage() {
                                   ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-black"
                                   : "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 font-bold"
                               }`}
-                              title={liveAth.documentsStatus === "VERIFIED" ? "View verified PDF dossier" : "Upload 1 Combined PDF dossier from computer"}
+                              title={liveAth.documentsStatus === "VERIFIED" ? "View verified PDF dossier" : "Upload / Replace 1 Combined PDF dossier"}
                             >
                               <FileText className="w-3 h-3" />
                               {liveAth.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF"}
@@ -1736,7 +1882,7 @@ export default function RegistrationDeskPage() {
                                   title="Upload or view 1 Combined PDF dossier"
                                 >
                                   <FileText className="w-3 h-3" />
-                                  {liveMember.documentsStatus === "VERIFIED" ? "1 PDF ✓" : "1 PDF PENDING"}
+                                  {liveMember.documentsStatus === "VERIFIED" ? "1 PDF ✓" : liveMember.role === "MANAGER" ? "PDF (OPTIONAL)" : "1 PDF PENDING"}
                                 </button>
                               </td>
                               <td className="p-2.5">
@@ -1752,6 +1898,16 @@ export default function RegistrationDeskPage() {
                               </td>
                               <td className="p-2.5 text-right">
                                 <div className="flex items-center justify-end gap-1.5">
+                                  {liveMember.documentsStatus !== "VERIFIED" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleVerifyDocumentsForParticipant(liveMember.id)}
+                                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-[10px] font-black uppercase rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                      title="Verify and generate QR pass"
+                                    >
+                                      <Check className="w-3 h-3" /> VERIFY &amp; ISSUE QR
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1859,16 +2015,21 @@ export default function RegistrationDeskPage() {
                           TEAM MANAGER / COACH REGISTRATION
                         </h2>
                       </div>
-                      {managerPhotoUrl && (
-                        <span className="text-[11px] font-rajdhani font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> MANAGER PHOTO READY
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                          NAME &amp; PHONE COMPULSORY &bull; DOCS OPTIONAL
                         </span>
-                      )}
+                        {managerPhotoUrl && (
+                          <span className="text-[11px] font-rajdhani font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> PHOTO READY
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="p-4 bg-orange-50/40 border border-orange-200 rounded-2xl space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                        {/* Manager Photo Capture */}
+                        {/* Manager Photo Capture (Optional) */}
                         <div className="md:col-span-3 flex items-center gap-2.5">
                           <div className="w-20 h-20 rounded-xl overflow-hidden bg-white border-2 border-slate-300 shrink-0 relative shadow-2xs">
                             {managerPhotoUrl ? (
@@ -1905,10 +2066,13 @@ export default function RegistrationDeskPage() {
                                 onChange={(e) => handleFileUpload("MANAGER", e)}
                               />
                             </label>
+                            <div className="text-[9px] font-mono font-bold text-slate-500 text-center uppercase">
+                              PHOTO (OPTIONAL)
+                            </div>
                           </div>
                         </div>
 
-                        {/* Manager Details: Name, Mobile, Email */}
+                        {/* Manager Details: Name & Mobile (Compulsory), Email (Optional) */}
                         <div className="md:col-span-9 grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
                             <label className="block font-rajdhani text-[10px] font-bold text-slate-800 uppercase tracking-wider mb-1">
@@ -1938,11 +2102,10 @@ export default function RegistrationDeskPage() {
 
                           <div>
                             <label className="block font-rajdhani text-[10px] font-bold text-slate-800 uppercase tracking-wider mb-1">
-                              MANAGER EMAIL ADDRESS *
+                              MANAGER EMAIL ADDRESS <span className="text-slate-400 font-mono font-normal">(OPTIONAL)</span>
                             </label>
                             <input
                               type="email"
-                              required
                               placeholder="manager@university.edu"
                               value={managerEmail}
                               onChange={(e) => setManagerEmail(e.target.value)}
@@ -1952,12 +2115,15 @@ export default function RegistrationDeskPage() {
                         </div>
                       </div>
 
-                      {/* 1 Combined PDF upload for manager */}
+                      {/* 1 Combined PDF upload for manager (OPTIONAL) */}
                       <div className="pt-3 border-t border-orange-200/80 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-[#FF5A16]" />
                           <span className="font-rajdhani text-xs font-bold text-slate-800 uppercase tracking-wider">
                             MANAGER DOCUMENTS (1 COMBINED PDF: ID CARD, APPOINTMENT ORDER)
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                            OPTIONAL
                           </span>
                         </div>
 
@@ -1985,7 +2151,7 @@ export default function RegistrationDeskPage() {
                             ) : (
                               <>
                                 <Upload className="w-3.5 h-3.5 text-[#FF5A16]" />
-                                UPLOAD 1 COMBINED PDF (MANAGER)
+                                UPLOAD 1 COMBINED PDF (OPTIONAL)
                               </>
                             )}
                             <input
@@ -2011,7 +2177,7 @@ export default function RegistrationDeskPage() {
                         </h2>
                       </div>
                       <span className="text-xs font-mono font-bold text-[#FF5A16] bg-orange-50 px-3 py-1 rounded-full border border-orange-200">
-                        5 ATHLETES PER SQUAD
+                        5 ATHLETES PER SQUAD &bull; ALL DETAILS &amp; DOCUMENTS COMPULSORY *
                       </span>
                     </div>
 
@@ -2019,16 +2185,17 @@ export default function RegistrationDeskPage() {
                       {teamAthletes.map((athlete, idx) => {
                         const isCaptain = idx === 0;
                         const label = isCaptain ? "ATHLETE 01 — TEAM CAPTAIN *" : `ATHLETE 0${idx + 1} *`;
+                        const isAthleteReady = !!(athlete.name.trim() && athlete.mobile.trim() && athlete.email.trim() && athlete.photoUrl && athlete.pdfDataUrl);
 
                         return (
                           <div
                             key={`athlete-row-${idx}`}
-                            className={`p-4 rounded-xl border-2 transition-all ${athlete.name && athlete.mobile && athlete.photoUrl
-                              ? "bg-emerald-50/40 border-emerald-300"
+                            className={`p-4 rounded-xl border-2 transition-all ${isAthleteReady
+                              ? "bg-emerald-50/50 border-emerald-400 shadow-2xs"
                               : "bg-slate-50/70 border-slate-200 hover:border-slate-300"
                               }`}
                           >
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                               <div className="flex items-center gap-2">
                                 <span className={`w-6 h-6 rounded-full font-rajdhani font-black text-xs flex items-center justify-center ${isCaptain ? "bg-[#FF5A16] text-white" : "bg-slate-200 text-slate-800"
                                   }`}>
@@ -2039,11 +2206,24 @@ export default function RegistrationDeskPage() {
                                 </span>
                               </div>
 
-                              {athlete.photoUrl && (
-                                <span className="text-[11px] font-rajdhani font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3" /> PHOTO READY
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {isAthleteReady ? (
+                                  <span className="text-[11px] font-rajdhani font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> ALL 5 DETAILS COMPLETED ✓
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-rajdhani font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                    {[
+                                      !athlete.photoUrl && "Photo",
+                                      !athlete.name.trim() && "Name",
+                                      !athlete.mobile.trim() && "Mobile",
+                                      !athlete.email.trim() && "Email",
+                                      !athlete.pdfDataUrl && "PDF Docs",
+                                    ].filter(Boolean).join(", ")} Required *
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
@@ -2075,7 +2255,7 @@ export default function RegistrationDeskPage() {
                                     ) : (
                                       <>
                                         <Upload className="w-3 h-3 text-slate-500" />
-                                        <span>UPLOAD</span>
+                                        <span>UPLOAD *</span>
                                       </>
                                     )}
                                     <input
@@ -2140,14 +2320,14 @@ export default function RegistrationDeskPage() {
                             <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-3.5 h-3.5 text-[#FF5A16]" />
-                                <span className="font-rajdhani text-[11px] font-bold text-slate-800 uppercase tracking-wider">
-                                  DOCUMENTS (1 COMBINED PDF: ID CARD, SSLC, PUC / ELIGIBILITY)
+                                <span className="font-rajdhani text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                  DOCUMENTS (1 COMBINED PDF: ID CARD, SSLC, PUC / ELIGIBILITY) <span className="text-[#FF5A16] font-black">* COMPULSORY</span>
                                 </span>
                               </div>
 
                               {athlete.pdfFileName ? (
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">
+                                  <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 shadow-2xs">
                                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                     {athlete.pdfFileName} ({athlete.pdfFileSize})
                                   </span>
@@ -2160,7 +2340,7 @@ export default function RegistrationDeskPage() {
                                   </button>
                                 </div>
                               ) : (
-                                <label className="px-3 py-1 bg-white hover:bg-orange-50/70 border-2 border-dashed border-slate-300 hover:border-[#FF5A16] text-slate-700 hover:text-[#FF5A16] rounded-lg font-rajdhani text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors">
+                                <label className="px-3.5 py-1.5 bg-orange-50/70 hover:bg-orange-100 border-2 border-dashed border-[#FF5A16] text-[#FF5A16] rounded-lg font-rajdhani text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors">
                                   {compressingAthletePdfIdx === idx ? (
                                     <>
                                       <RefreshCw className="w-3 h-3 animate-spin text-[#FF5A16]" />
@@ -2169,7 +2349,7 @@ export default function RegistrationDeskPage() {
                                   ) : (
                                     <>
                                       <Upload className="w-3 h-3 text-[#FF5A16]" />
-                                      UPLOAD 1 COMBINED PDF
+                                      UPLOAD 1 COMBINED PDF (COMPULSORY *)
                                     </>
                                   )}
                                   <input
@@ -3370,6 +3550,16 @@ export default function RegistrationDeskPage() {
                             </td>
                             <td className="p-3 text-right">
                               <div className="flex items-center justify-end gap-1.5">
+                                {p.documentsStatus !== "VERIFIED" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleVerifyDocumentsForParticipant(p.id)}
+                                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-[10px] font-black uppercase rounded-md flex items-center gap-1 cursor-pointer shadow-2xs transition-colors"
+                                    title={p.role === "MANAGER" ? "Approve manager & issue QR pass" : "Verify documents & issue QR pass"}
+                                  >
+                                    <CheckCircle2 className="w-3 h-3" /> {p.role === "MANAGER" ? "APPROVE & QR" : "VERIFY & QR"}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => triggerNativeFileUpload(p)}
@@ -3605,144 +3795,184 @@ export default function RegistrationDeskPage() {
       {/* MODAL 2: PARTICIPANT ACCREDITATION PASS */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       <AnimatePresence>
-        {selectedParticipantForPass && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white border-2 border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <span className="font-rajdhani text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  OFFICIAL TOURNAMENT PASS
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedParticipantForPass(null)}
-                  className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+        {selectedParticipantForPass && (() => {
+          const livePassParticipant = getLiveParticipant(selectedParticipantForPass);
+          const isVerified = livePassParticipant.documentsStatus === "VERIFIED" && Boolean(livePassParticipant.qrToken);
 
-              {/* ID Badge Pass Card (CLEAN LIGHT THEME) */}
-              <div
-                id="accreditation-pass-card"
-                className="bg-white text-[#0B1528] rounded-2xl p-6 border-2 border-[#0B1528] shadow-lg text-center space-y-4 relative overflow-hidden"
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white border-2 border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4"
               >
-                {/* Official Accent Header Bar */}
-                <div className="border-b-2 border-[#FF5A16] pb-3 space-y-1">
-                  <div className="font-rajdhani text-xs text-[#FF5A16] font-black uppercase tracking-wider">
-                    SOUTH ZONE WOMEN&apos;S BADMINTON CHAMPIONSHIP 2026
-                  </div>
-                  <div className="text-[11px] text-slate-600 font-mono font-medium">
-                    KLE Technological University, Hubballi &bull; Karnataka
-                  </div>
-                  <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[#0B1528] font-rajdhani text-[10px] font-black uppercase tracking-widest mt-1">
-                    OFFICIAL ACCREDITATION PASS
-                  </div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="font-rajdhani text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    OFFICIAL TOURNAMENT PASS
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedParticipantForPass(null)}
+                    className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Photo */}
-                <div className="w-28 h-28 mx-auto rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm bg-slate-100">
-                  {selectedParticipantForPass.photoUrl ? (
-                    <img
-                      src={selectedParticipantForPass.photoUrl}
-                      alt={selectedParticipantForPass.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-12 h-12 text-slate-400 m-auto mt-8" />
-                  )}
-                </div>
-
-                {/* Details */}
-                <div className="space-y-1">
-                  <h3 className="font-rajdhani text-2xl font-black uppercase tracking-tight text-[#0B1528]">
-                    {selectedParticipantForPass.name}
-                  </h3>
-                  <div>
-                    <span className="font-mono text-xs text-[#FF5A16] font-bold px-3 py-1 bg-orange-50 border border-orange-200 rounded-full inline-block">
-                      {selectedParticipantForPass.playerId}
-                    </span>
-                  </div>
-                  <div className="text-sm text-[#0B1528] font-bold uppercase mt-1">
-                    {selectedParticipantForPass.institution}
-                  </div>
-                  <div className="text-xs text-slate-600 font-rajdhani font-bold uppercase">
-                    {selectedParticipantForPass.state}
-                  </div>
-
-                  {/* Role Badge */}
-                  <div className="pt-1">
-                    <span className={`inline-block px-3 py-0.5 rounded-full font-rajdhani text-xs font-black uppercase tracking-wider ${
-                      selectedParticipantForPass.role === "MANAGER"
-                        ? "bg-purple-100 text-purple-900 border border-purple-200"
-                        : selectedParticipantForPass.role === "CAPTAIN"
-                        ? "bg-orange-100 text-[#FF5A16] border border-orange-200"
-                        : "bg-blue-50 text-blue-900 border border-blue-200"
-                    }`}>
-                      {selectedParticipantForPass.role === "MANAGER"
-                        ? "ACCREDITED TEAM MANAGER"
-                        : selectedParticipantForPass.role === "CAPTAIN"
-                        ? "ACCREDITED ATHLETE (CAPTAIN)"
-                        : "ACCREDITED ATHLETE"}
-                    </span>
-                  </div>
-
-                  {/* Accommodation Info */}
-                  {selectedParticipantForPass.room && selectedParticipantForPass.room !== "—" && (
-                    <div className="text-[10px] font-mono text-slate-700 font-bold bg-slate-50 rounded-lg py-1 px-2 border border-slate-200 mt-1 inline-block">
-                      {selectedParticipantForPass.hostel} &bull; Room {selectedParticipantForPass.room} &bull; Bed {selectedParticipantForPass.bed}
+                {/* ID Badge Pass Card (CLEAN LIGHT THEME) */}
+                <div
+                  id="accreditation-pass-card"
+                  className="bg-white text-[#0B1528] rounded-2xl p-6 border-2 border-[#0B1528] shadow-lg text-center space-y-4 relative overflow-hidden"
+                >
+                  {/* Official Accent Header Bar */}
+                  <div className="border-b-2 border-[#FF5A16] pb-3 space-y-1">
+                    <div className="font-rajdhani text-xs text-[#FF5A16] font-black uppercase tracking-wider">
+                      SOUTH ZONE WOMEN&apos;S BADMINTON CHAMPIONSHIP 2026
                     </div>
-                  )}
-                </div>
-
-                {/* Crisp Scannable Pass QR */}
-                <div className="pt-1 flex flex-col items-center justify-center">
-                  <div className="bg-white p-3 rounded-2xl border-2 border-slate-300 inline-block shadow-sm">
-                    <PassQrSvg
-                      value={selectedParticipantForPass.qrToken || selectedParticipantForPass.playerId}
-                      size={140}
-                    />
+                    <div className="text-[11px] text-slate-600 font-mono font-medium">
+                      KLE Technological University, Hubballi &bull; Karnataka
+                    </div>
+                    <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-[#0B1528] font-rajdhani text-[10px] font-black uppercase tracking-widest mt-1">
+                      OFFICIAL ACCREDITATION PASS
+                    </div>
                   </div>
 
-                  <div className="text-[10px] font-mono font-bold tracking-wider uppercase mt-2">
-                    {selectedParticipantForPass.documentsStatus === "VERIFIED" ? (
-                      <span className="text-emerald-700 flex items-center gap-1 justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        ACCREDITATION VERIFIED &bull; DESK 01
-                      </span>
+                  {/* Photo */}
+                  <div className="w-28 h-28 mx-auto rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm bg-slate-100">
+                    {livePassParticipant.photoUrl ? (
+                      <img
+                        src={livePassParticipant.photoUrl}
+                        alt={livePassParticipant.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      <span className="text-amber-700 flex items-center gap-1 justify-center">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        PROVISIONAL REGISTRATION &bull; VERIFY AT DESK
+                      <User className="w-12 h-12 text-slate-400 m-auto mt-8" />
+                    )}
+                  </div>
+
+                  {/* Details: University Name -> Designation -> Name below designation */}
+                  <div className="space-y-1.5 text-center">
+                    {/* 1. University's Name */}
+                    <div className="text-sm font-rajdhani font-black text-slate-800 uppercase tracking-wide">
+                      {livePassParticipant.institution}
+                    </div>
+                    {livePassParticipant.state && (
+                      <div className="text-[11px] text-slate-500 font-mono font-medium uppercase">
+                        {livePassParticipant.state}
+                      </div>
+                    )}
+
+                    {/* 2. Designation */}
+                    <div className="pt-0.5">
+                      <span className={`inline-block px-3 py-1 rounded-full font-rajdhani text-xs font-black uppercase tracking-wider ${
+                        livePassParticipant.role === "MANAGER"
+                          ? "bg-purple-100 text-purple-900 border border-purple-300"
+                          : livePassParticipant.role === "CAPTAIN"
+                          ? "bg-orange-100 text-[#FF5A16] border border-orange-300"
+                          : "bg-blue-100 text-blue-900 border border-blue-300"
+                      }`}>
+                        {livePassParticipant.role === "MANAGER"
+                          ? "MANAGER"
+                          : livePassParticipant.role === "CAPTAIN"
+                          ? "TEAM CAPTAIN"
+                          : "ATHLETE"}
                       </span>
+                    </div>
+
+                    {/* 3. Participant's Name below designation */}
+                    <h3 className="font-rajdhani text-2xl font-black uppercase tracking-tight text-[#0B1528] pt-0.5">
+                      {livePassParticipant.name}
+                    </h3>
+
+                    {/* Accreditation ID */}
+                    <div>
+                      <span className="font-mono text-xs text-[#FF5A16] font-bold px-3 py-1 bg-orange-50 border border-orange-200 rounded-full inline-block">
+                        {livePassParticipant.playerId}
+                      </span>
+                    </div>
+
+                    {/* Accommodation Info */}
+                    {livePassParticipant.room && livePassParticipant.room !== "—" && (
+                      <div className="text-[10px] font-mono text-slate-700 font-bold bg-slate-50 rounded-lg py-1 px-2 border border-slate-200 mt-1 inline-block">
+                        {livePassParticipant.hostel} &bull; Room {livePassParticipant.room} &bull; Bed {livePassParticipant.bed}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Crisp Scannable Pass QR (ONLY GENERATED AFTER VERIFICATION) */}
+                  <div className="pt-1 flex flex-col items-center justify-center">
+                    {isVerified ? (
+                      <>
+                        <div className="bg-white p-3 rounded-2xl border-2 border-emerald-400 inline-block shadow-sm">
+                          <PassQrSvg
+                            value={livePassParticipant.qrToken!}
+                            size={140}
+                          />
+                        </div>
+
+                        <div className="text-[10px] font-mono font-bold tracking-wider uppercase mt-2">
+                          <span className="text-emerald-700 flex items-center gap-1 justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            ACCREDITATION VERIFIED &bull; OFFICIAL QR ACTIVE &bull; DESK 01
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full bg-amber-50/70 rounded-2xl border-2 border-dashed border-amber-300 p-4 flex flex-col items-center justify-center text-center space-y-2">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+                          <Lock className="w-5 h-5" />
+                        </div>
+                        <div className="font-rajdhani text-xs font-black uppercase text-amber-900 tracking-wider">
+                          QR CODE NOT GENERATED YET
+                        </div>
+                        <p className="text-[11px] font-sans text-amber-700 max-w-xs leading-relaxed">
+                          {livePassParticipant.role === "MANAGER"
+                            ? "Team manager is registered. Click below to verify and generate the official tournament QR accreditation pass."
+                            : "All athlete documents must be uploaded and verified before the official tournament accreditation QR code is generated."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleVerifyDocumentsForParticipant(livePassParticipant.id);
+                          }}
+                          className="mt-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-xs font-black uppercase rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          {livePassParticipant.role === "MANAGER"
+                            ? "APPROVE & GENERATE QR PASS"
+                            : "VERIFY DOCUMENTS & GENERATE QR PASS"}
+                        </button>
+                        <div className="text-[9px] font-mono text-amber-600 uppercase pt-1">
+                          PROVISIONAL REGISTRATION &bull; ACCREDITATION PENDING
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
 
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="flex-1 py-2.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-xs font-black uppercase rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" /> PRINT BADGE
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedParticipantForPass(null)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-rajdhani text-xs font-bold uppercase rounded-xl cursor-pointer"
-                >
-                  CLOSE
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={!isVerified}
+                    onClick={() => window.print()}
+                    className="flex-1 py-2.5 bg-[#FF5A16] hover:bg-[#ea4e0e] disabled:opacity-40 disabled:cursor-not-allowed text-white font-rajdhani text-xs font-black uppercase rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                    title={isVerified ? "Print official accreditation badge" : "Documents must be verified to unlock QR code and print badge"}
+                  >
+                    <Printer className="w-4 h-4" /> {isVerified ? "PRINT BADGE" : "PRINT BADGE (LOCKED)"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedParticipantForPass(null)}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-rajdhani text-xs font-bold uppercase rounded-xl cursor-pointer"
+                  >
+                    CLOSE
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* ═══════════════════════════════════════════════════════════════ */}
@@ -3776,6 +4006,24 @@ export default function RegistrationDeskPage() {
                     <span className="px-3 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 font-rajdhani text-xs font-black uppercase">
                       Total Paid: ₹{selectedTeamDetail.totalPaid.toLocaleString()}
                     </span>
+                    {selectedTeamDetail.participants.some((p) => getLiveParticipant(p).documentsStatus !== "VERIFIED") && (
+                      <button
+                        type="button"
+                        disabled={verifyingAll}
+                        onClick={() => handleVerifyAllAthletesForTeam(undefined, selectedTeamDetail.participants.map((p) => p.id))}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-rajdhani text-xs font-black uppercase rounded-full flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                      >
+                        {verifyingAll ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" /> VERIFYING...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3 h-3" /> VERIFY ALL MEMBERS &amp; ISSUE QR PASSES
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <button
@@ -3802,68 +4050,83 @@ export default function RegistrationDeskPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
-                    {selectedTeamDetail.participants.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
-                            {m.photoUrl ? (
-                              <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <User className="w-5 h-5 text-slate-400 m-auto mt-2.5" />
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900">{m.name}</div>
-                          <div className="font-mono text-[10px] text-[#FF5A16] font-bold">{m.playerId}</div>
-                        </td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded font-rajdhani text-[10px] font-bold ${
-                            m.role === "MANAGER"
-                              ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
-                              : m.role === "CAPTAIN"
-                              ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
-                              : "bg-slate-100 text-slate-700"
-                          }`}>
-                            {m.role}
-                          </span>
-                        </td>
-                        <td className="p-3 font-mono text-[11px] text-slate-600">{m.phone}</td>
-                        <td className="p-3 text-slate-700">
-                          {m.room !== "—" ? (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 font-rajdhani text-[10px] font-bold">
-                              {m.hostel} ({m.room})
+                    {selectedTeamDetail.participants.map((m) => {
+                      const liveM = getLiveParticipant(m);
+                      return (
+                        <tr key={liveM.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3">
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 border border-slate-300 shrink-0">
+                              {liveM.photoUrl ? (
+                                <img src={liveM.photoUrl} alt={liveM.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-5 h-5 text-slate-400 m-auto mt-2.5" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-900">{liveM.name}</div>
+                            <div className="font-mono text-[10px] text-[#FF5A16] font-bold">{liveM.playerId}</div>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded font-rajdhani text-[10px] font-bold ${
+                              liveM.role === "MANAGER"
+                                ? "bg-purple-100 text-purple-800 border border-purple-200 font-black"
+                                : liveM.role === "CAPTAIN"
+                                ? "bg-orange-100 text-[#FF5A16] border border-orange-200 font-black"
+                                : "bg-slate-100 text-slate-700"
+                            }`}>
+                              {liveM.role}
                             </span>
-                          ) : (
-                            <span className="text-slate-400 italic">None</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <button
-                            type="button"
-                            onClick={() => triggerNativeFileUpload(m)}
-                            className={`px-2.5 py-1 rounded-lg font-rajdhani text-xs font-bold uppercase flex items-center gap-1 cursor-pointer border transition-colors ${
-                              m.documentsStatus === "VERIFIED"
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-black"
-                                : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                            }`}
-                            title="Click to select 1 Combined PDF from your computer"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            {m.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF (SELECT)"}
-                          </button>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedParticipantForPass(m)}
-                            className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-xs font-black uppercase rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" /> VIEW PASS
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-slate-600">{liveM.phone}</td>
+                          <td className="p-3 text-slate-700">
+                            {liveM.room !== "—" ? (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 font-rajdhani text-[10px] font-bold">
+                                {liveM.hostel} ({liveM.room})
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">None</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <button
+                              type="button"
+                              onClick={() => triggerNativeFileUpload(liveM)}
+                              className={`px-2.5 py-1 rounded-lg font-rajdhani text-xs font-bold uppercase flex items-center gap-1 cursor-pointer border transition-colors ${
+                                liveM.documentsStatus === "VERIFIED"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-black"
+                                  : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                              }`}
+                              title="Click to select 1 Combined PDF from your computer"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {liveM.documentsStatus === "VERIFIED" ? "PDF ✓" : "1 PDF (SELECT)"}
+                            </button>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {liveM.documentsStatus !== "VERIFIED" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleVerifyDocumentsForParticipant(liveM.id)}
+                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-rajdhani text-[10px] font-black uppercase rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
+                                  title={liveM.role === "MANAGER" ? "Approve manager & issue QR pass" : "Verify documents and generate official QR accreditation pass"}
+                                >
+                                  <CheckCircle2 className="w-3 h-3" /> {liveM.role === "MANAGER" ? "APPROVE & QR" : "VERIFY & QR"}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedParticipantForPass(liveM)}
+                                className="px-3 py-1.5 bg-[#FF5A16] hover:bg-[#ea4e0e] text-white font-rajdhani text-xs font-black uppercase rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1"
+                              >
+                                <Eye className="w-3.5 h-3.5" /> VIEW PASS
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

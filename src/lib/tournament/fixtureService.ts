@@ -7,6 +7,7 @@ import {
   getCanonicalDrawSequence,
 } from "./fixtureTemplate";
 import { logAuditEvent } from "@/lib/rbac/audit";
+import { OFFICIAL_UNIVERSITIES } from "./officialTournamentData";
 
 export interface FixtureValidationReport {
   isValid: boolean;
@@ -25,7 +26,7 @@ export interface FixtureValidationReport {
  * Ensures tournament teams exist dynamically up to targetCount (for test/simulation).
  * Uses registered teams from database or dynamic team identifiers without hardcoding fake universities.
  */
-export async function ensureTournamentTeams(targetCount = 100): Promise<{ count: number; created: number }> {
+export async function ensureTournamentTeams(targetCount = 102): Promise<{ count: number; created: number }> {
   const currentCount = await prisma.team.count();
   if (currentCount >= targetCount) {
     return { count: currentCount, created: 0 };
@@ -36,10 +37,13 @@ export async function ensureTournamentTeams(targetCount = 100): Promise<{ count:
 
   let created = 0;
   for (let i = currentCount + 1; i <= targetCount; i++) {
-    const code = `TM-SZ-${String(i).padStart(3, "0")}`;
-    const inst = institutions.length > 0
+    const officialUniv = OFFICIAL_UNIVERSITIES.find((u) => u.teamNumber === i);
+    const code = officialUniv ? officialUniv.teamCode : `SZ-${String(i).padStart(2, "0")}`;
+    const inst = officialUniv
+      ? { name: officialUniv.fullName, state: officialUniv.state }
+      : institutions.length > 0
       ? institutions[(i - 1) % institutions.length]
-      : { name: `Participating University ${String(i).padStart(3, "0")}`, state: "South Zone" };
+      : { name: `Participating University ${String(i).padStart(2, "0")}`, state: "South Zone" };
 
     await prisma.team.upsert({
       where: { teamCode: code },
@@ -99,8 +103,8 @@ export async function initFixtureGraph(): Promise<{
       data: {
         id: "SZWBT-2026-FIXTURE",
         status: "DRAFT",
-        totalTeams: 100,
-        teamsPerPool: 25,
+        totalTeams: 102,
+        teamsPerPool: 26,
         currentDrawNumber: 1,
         currentPool: "A",
         currentSide: "FIRST",
@@ -297,8 +301,8 @@ export async function resetFixtureGraph(actorEmail = "system@szwbt2026.edu"): Pr
     where: { id: "SZWBT-2026-FIXTURE" },
     update: {
       status: "DRAFT",
-      totalTeams: 100,
-      teamsPerPool: 25,
+      totalTeams: 102,
+      teamsPerPool: 26,
       currentDrawNumber: 1,
       currentPool: "A",
       currentSide: "FIRST",
@@ -314,8 +318,8 @@ export async function resetFixtureGraph(actorEmail = "system@szwbt2026.edu"): Pr
     create: {
       id: "SZWBT-2026-FIXTURE",
       status: "DRAFT",
-      totalTeams: 100,
-      teamsPerPool: 25,
+      totalTeams: 102,
+      teamsPerPool: 26,
       currentDrawNumber: 1,
       currentPool: "A",
       currentSide: "FIRST",
@@ -382,7 +386,7 @@ export function computeNextDrawPointer(positions: Array<{
     }
   }
 
-  const isComplete = assignedCount >= 100;
+  const isComplete = assignedCount >= 102;
   const currentDrawNumber = assignedCount + 1;
 
   if (isComplete || !nextFound) {
@@ -391,7 +395,7 @@ export function computeNextDrawPointer(positions: Array<{
       nextPool: null,
       nextSide: null,
       nextPositionNumber: null,
-      currentDrawNumber: 100,
+      currentDrawNumber: 102,
       isComplete: true,
     };
   }
@@ -491,17 +495,19 @@ export async function getDrawState(): Promise<{
     totalAssigned += assigned;
     fixedTeamsCount += fixed;
 
+    const poolCapacity = (pool === "A" || pool === "C") ? 26 : 25;
+
     poolStats[pool] = {
       pool,
-      total: 25,
+      total: poolCapacity,
       assigned,
-      remaining: 25 - assigned,
+      remaining: poolCapacity - assigned,
       fixed,
       firstAssigned,
       firstTotal: 13,
       lastAssigned,
-      lastTotal: 12,
-      status: assigned === 25 ? "COMPLETE" : assigned > 0 ? "DRAWING" : "PENDING",
+      lastTotal: poolCapacity - 13,
+      status: assigned === poolCapacity ? "COMPLETE" : assigned > 0 ? "DRAWING" : "PENDING",
     };
   }
 
@@ -511,9 +517,9 @@ export async function getDrawState(): Promise<{
     currentPosition: currentPosObj,
     nextPosition: nextPosObj,
     totalAssigned,
-    totalRemaining: 100 - totalAssigned,
+    totalRemaining: 102 - totalAssigned,
     fixedTeamsCount,
-    isComplete: pointer.isComplete || totalAssigned === 100,
+    isComplete: pointer.isComplete || totalAssigned === 102,
     isLocked: config?.isLocked || false,
     isPublished: config?.isPublished || false,
     poolStats,
@@ -732,7 +738,7 @@ export async function assignTeamToCurrentDraw(params: {
     const pointer = computeNextDrawPointer(allPositions);
 
     if (pointer.isComplete || !pointer.nextPositionId) {
-      throw new Error("All 100 positions are already assigned or fixed. Draw is complete.");
+      throw new Error("All 102 positions are already assigned or fixed. Draw is complete.");
     }
 
     // 3. Optimistic concurrency check
@@ -1012,15 +1018,16 @@ export async function validateFixtureGraph(): Promise<FixtureValidationReport> {
   }
 
   // Validate pool counts
+  const expectedPoolCounts: Record<PoolCode, number> = { A: 26, B: 25, C: 26, D: 25 };
   const pools: PoolCode[] = ["A", "B", "C", "D"];
   for (const p of pools) {
-    if (poolCounts[p] !== 25) {
-      errors.push(`Pool ${p} does not have exactly 25 positions (has ${poolCounts[p]}).`);
+    if (poolCounts[p] !== expectedPoolCounts[p]) {
+      errors.push(`Pool ${p} does not have exactly ${expectedPoolCounts[p]} positions (has ${poolCounts[p]}).`);
     }
   }
 
-  if (positions.length !== 100) {
-    errors.push(`Total fixture positions is ${positions.length}, expected 100.`);
+  if (positions.length !== 102) {
+    errors.push(`Total fixture positions is ${positions.length}, expected 102.`);
   }
 
   // Validate matches
@@ -1037,8 +1044,8 @@ export async function validateFixtureGraph(): Promise<FixtureValidationReport> {
     }
   }
 
-  if (matches.length !== 100) {
-    warnings.push(`Total matches found is ${matches.length}, expected 100.`);
+  if (matches.length !== 102) {
+    warnings.push(`Total matches found is ${matches.length}, expected 102.`);
   }
 
   const isValid = errors.length === 0;
@@ -1063,8 +1070,8 @@ export async function validateFixtureGraph(): Promise<FixtureValidationReport> {
 export async function lockFixture(actorEmail: string): Promise<{ success: boolean; config: any }> {
   const report = await validateFixtureGraph();
 
-  if (report.totalAssigned < 100) {
-    throw new Error(`Cannot lock fixture: only ${report.totalAssigned} / 100 positions are assigned.`);
+  if (report.totalAssigned < 102) {
+    throw new Error(`Cannot lock fixture: only ${report.totalAssigned} / 102 positions are assigned.`);
   }
 
   if (!report.isValid) {
@@ -1211,15 +1218,22 @@ export async function resolveMatchProgression(params: {
       }
     }
 
-    // 4. Special Case: Championship Semi-Finals (M097 and M098) losers advance to M099 (3rd Place Playoff)
-    if (match.publicMatchNumber === "M097" || match.publicMatchNumber === "M098") {
-      const playoffMatch = await tx.match.findUnique({
-        where: { publicMatchNumber: "M099" },
+    // 4. Special Case: Championship Semi-Finals (Tie 99 and Tie 100) losers advance to Tie 102 (Hardline Tie / LSF)
+    if (match.publicMatchNumber === "Tie 99" || match.publicMatchNumber === "Tie 100" || match.publicMatchNumber === "M099" || match.publicMatchNumber === "M100") {
+      const playoffMatch = await tx.match.findFirst({
+        where: {
+          OR: [
+            { publicMatchNumber: "Tie 102" },
+            { publicMatchNumber: "M102" },
+            { matchNumber: { contains: "Tie 102" } },
+          ],
+        },
       });
 
       if (playoffMatch) {
         const updateData: any = {};
-        if (match.publicMatchNumber === "M097") {
+        const isMatch1 = match.publicMatchNumber === "Tie 99" || match.publicMatchNumber === "M099";
+        if (isMatch1) {
           updateData.playerA = losingPlayer;
           updateData.institutionA = losingInstitution;
           updateData.teamAId = losingTeamId;
@@ -1229,8 +1243,8 @@ export async function resolveMatchProgression(params: {
           updateData.teamBId = losingTeamId;
         }
 
-        const hasA = (match.publicMatchNumber === "M097" && losingPlayer) || (playoffMatch.playerA && !playoffMatch.playerA.startsWith("TBD") && !playoffMatch.playerA.startsWith("Loser"));
-        const hasB = (match.publicMatchNumber === "M098" && losingPlayer) || (playoffMatch.playerB && !playoffMatch.playerB.startsWith("TBD") && !playoffMatch.playerB.startsWith("Loser"));
+        const hasA = (isMatch1 && losingPlayer) || (playoffMatch.playerA && !playoffMatch.playerA.startsWith("TBD") && !playoffMatch.playerA.startsWith("Loser"));
+        const hasB = (!isMatch1 && losingPlayer) || (playoffMatch.playerB && !playoffMatch.playerB.startsWith("TBD") && !playoffMatch.playerB.startsWith("Loser"));
         if (hasA && hasB) {
           updateData.status = "READY";
         }

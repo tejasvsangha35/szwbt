@@ -16,6 +16,7 @@ import {
   resetFixtureGraph,
 } from "@/lib/tournament/fixtureService";
 import { ROUND_1_MATCH_FLOW, getGlobalMatchNumber } from "@/lib/tournament/fixtureConstants";
+import { formatTeamCode, normalizeTeamCode, getTeamCodeSearchCandidates } from "@/lib/team/format";
 
 /**
  * GET /api/tournament/fixtures
@@ -106,15 +107,16 @@ export async function GET(req: NextRequest) {
       );
       const assignedCount = bracketSlots.length > 0 ? slotTeams.length : posTeams.length;
       totalAssignedAllPools += assignedCount;
+      const poolCap = (p === "A" || p === "C") ? 26 : 25;
 
       activePoolStats[p] = {
         pool: p,
-        total: 25,
-        limit: 25,
+        total: poolCap,
+        limit: poolCap,
         assigned: assignedCount,
-        remaining: Math.max(0, 25 - assignedCount),
-        isFull: assignedCount >= 25,
-        status: assignedCount >= 25 ? "COMPLETE" : assignedCount > 0 ? "IN_PROGRESS" : "EMPTY",
+        remaining: Math.max(0, poolCap - assignedCount),
+        isFull: assignedCount >= poolCap,
+        status: assignedCount >= poolCap ? "COMPLETE" : assignedCount > 0 ? "IN_PROGRESS" : "EMPTY",
       };
     }
 
@@ -126,9 +128,9 @@ export async function GET(req: NextRequest) {
         currentPosition: drawState.currentPosition,
         nextPosition: drawState.nextPosition,
         totalAssigned: bracketSlots.length > 0 ? totalAssignedAllPools : drawState.totalAssigned,
-        totalRemaining: Math.max(0, 100 - (bracketSlots.length > 0 ? totalAssignedAllPools : drawState.totalAssigned)),
+        totalRemaining: Math.max(0, 102 - (bracketSlots.length > 0 ? totalAssignedAllPools : drawState.totalAssigned)),
         fixedTeamsCount: drawState.fixedTeamsCount,
-        isComplete: (bracketSlots.length > 0 ? totalAssignedAllPools : drawState.totalAssigned) >= 100,
+        isComplete: (bracketSlots.length > 0 ? totalAssignedAllPools : drawState.totalAssigned) >= 102,
         isLocked: drawState.isLocked,
         isPublished: drawState.isPublished,
         poolStats: activePoolStats,
@@ -473,36 +475,44 @@ export async function POST(req: NextRequest) {
         if (teamId) {
           team = await prisma.team.findUnique({ where: { id: teamId } });
         } else if (teamCode) {
-          team = await prisma.team.findUnique({ where: { teamCode } });
-        } else if (teamNumber !== undefined && teamNumber !== null) {
-          const num = Number(teamNumber);
-          const formattedCode = `TM-SZ-${String(num).padStart(3, "0")}`;
-          team = await prisma.team.findUnique({ where: { teamCode: formattedCode } });
+          const candidates = getTeamCodeSearchCandidates(teamCode);
+          for (const cand of candidates) {
+            team = await prisma.team.findUnique({ where: { teamCode: cand } });
+            if (team) break;
+          }
           if (!team) {
-            const allTeams = await prisma.team.findMany();
-            team = allTeams.find((t) => {
-              const m = t.teamCode.match(/(\d+)/);
-              return m && parseInt(m[1], 10) === num;
+            team = await prisma.team.findFirst({
+              where: {
+                OR: candidates.map((c) => ({
+                  teamCode: { equals: c, mode: "insensitive" as const },
+                })),
+              },
             });
           }
+        } else if (teamNumber !== undefined && teamNumber !== null) {
+          const num = Number(teamNumber);
+          const allTeams = await prisma.team.findMany();
+          team = allTeams.find((t) => {
+            const m = t.teamCode.match(/(\d+)/);
+            return m && parseInt(m[1], 10) === num;
+          });
         }
 
         if (!team) {
           return NextResponse.json({ success: false, error: "Team not found in database." }, { status: 404 });
         }
 
-        const numMatch = team.teamCode.match(/(\d+)/);
-        const parsedTeamNum = numMatch ? parseInt(numMatch[1], 10) : null;
         const normalizedPool = pool.toUpperCase();
         const slotNum = Number(slot);
 
-        // Strict Limit: Exactly 25 teams maximum per pool
+        // Strict Limit: Exactly 26 teams for Pool A & C, 25 teams for Pool B & D
+        const maxPoolCapacity = (normalizedPool === "A" || normalizedPool === "C") ? 26 : 25;
         const currentCount = await getAssignedCountInPool(normalizedPool, [slotNum]);
-        if (currentCount >= 25) {
+        if (currentCount >= maxPoolCapacity) {
           return NextResponse.json(
             {
               success: false,
-              error: `Pool ${normalizedPool} has reached the tournament limit of 25 teams (Currently: 25/25). No more teams can be added to Pool ${normalizedPool}.`,
+              error: `Pool ${normalizedPool} has reached the tournament limit of ${maxPoolCapacity} teams (Currently: ${maxPoolCapacity}/${maxPoolCapacity}). No more teams can be added to Pool ${normalizedPool}.`,
             },
             { status: 400 }
           );
@@ -514,7 +524,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             {
               success: false,
-              error: `Team #${parsedTeamNum} (${team.name}) is already assigned to Pool ${existingAssignment.pool} Slot ${existingAssignment.slot}. Each team can only be assigned once in the tournament.`,
+              error: `Team ${formatTeamCode(team.teamCode)} (${team.name}) is already assigned to Pool ${existingAssignment.pool} Slot ${existingAssignment.slot}. Each team can only be assigned once in the tournament.`,
             },
             { status: 400 }
           );
@@ -525,7 +535,7 @@ export async function POST(req: NextRequest) {
           slot: slotNum,
           teamId: team.id,
           teamCode: team.teamCode,
-          teamNumber: parsedTeamNum,
+          teamNumber: slotNum,
           teamName: team.name,
           state: team.state,
           assignedBy: actorEmail,
@@ -533,7 +543,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          message: `Slot ${slotNum} in Pool ${normalizedPool} filled with ${team.name} (${team.state}).`,
+          message: `Slot ${slotNum} in Pool ${normalizedPool} filled with ${team.name} (${formatTeamCode(team.teamCode)}).`,
           data: { slot: updatedSlot, team },
         });
       }
@@ -555,13 +565,20 @@ export async function POST(req: NextRequest) {
           }
           if (!numOrCode && numOrCode !== 0) return null;
           const str = String(numOrCode).trim();
-          const byCode = await prisma.team.findUnique({ where: { teamCode: str } });
-          if (byCode) return byCode;
+          const candidates = getTeamCodeSearchCandidates(str);
+          for (const cand of candidates) {
+            const byCode = await prisma.team.findUnique({ where: { teamCode: cand } });
+            if (byCode) return byCode;
+          }
+          const byCase = await prisma.team.findFirst({
+            where: {
+              OR: candidates.map((c) => ({ teamCode: { equals: c, mode: "insensitive" as const } })),
+            },
+          });
+          if (byCase) return byCase;
+
           const num = parseInt(str.replace(/\D/g, ""), 10);
           if (!isNaN(num)) {
-            const formatted = `TM-SZ-${String(num).padStart(3, "0")}`;
-            const byFormatted = await prisma.team.findUnique({ where: { teamCode: formatted } });
-            if (byFormatted) return byFormatted;
             const allTeams = await prisma.team.findMany();
             const byNum = allTeams.find((t) => {
               const m = t.teamCode.match(/(\d+)/);
@@ -610,13 +627,14 @@ export async function POST(req: NextRequest) {
         const numMatchB = teamB.teamCode.match(/(\d+)/);
         const teamNumB = numMatchB ? parseInt(numMatchB[1], 10) : null;
 
-        // Strict Limit: Exactly 25 teams maximum per pool
+        // Strict Limit: Exactly 26 teams for Pool A & C, 25 teams for Pool B & D
+        const maxPoolCapacity = (normalizedPool === "A" || normalizedPool === "C") ? 26 : 25;
         const otherCount = await getAssignedCountInPool(normalizedPool, [sA, sB]);
-        if (otherCount + 2 > 25) {
+        if (otherCount + 2 > maxPoolCapacity) {
           return NextResponse.json(
             {
               success: false,
-              error: `Pool ${normalizedPool} cannot exceed the maximum tournament limit of 25 teams (Currently: ${otherCount} other teams assigned). Adding both teams would result in ${otherCount + 2} teams, exceeding the 25-team limit.`,
+              error: `Pool ${normalizedPool} cannot exceed the maximum tournament limit of ${maxPoolCapacity} teams (Currently: ${otherCount} other teams assigned). Adding both teams would result in ${otherCount + 2} teams, exceeding the ${maxPoolCapacity}-team limit.`,
             },
             { status: 400 }
           );

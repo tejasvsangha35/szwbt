@@ -105,13 +105,13 @@ async function main() {
       description: "High-throughput document verification desk, OCR matching and athlete eligibility accreditation.",
     },
     {
-      email: "volunteer@szwbt2026.edu",
-      name: "Field Operations Volunteer",
-      role: "VOLUNTEER",
-      badge: "MOBILE FIELD",
+      email: "spoc@szwbt2026.edu",
+      name: "Student Point of Contact",
+      role: "SPOC",
+      badge: "SPOC DESK",
       password: "szwbt2026pass",
-      targetUrl: "/volunteer",
-      description: "On-ground task list, participant lookup & quick QR pass scanner.",
+      targetUrl: "/spoc",
+      description: "Primary coordination and monitoring point for four assigned participating teams.",
     },
   ];
 
@@ -146,10 +146,11 @@ async function main() {
   // 5. Seed RBAC Users, Roles & Permissions
   await seedRbacData();
 
-  // 6. Seed University & Institution Master Data
-  await seedInstitutions();
+  // 6. Load Official Tournament Fixture Master (Exact 102 Universities & 102 Ties)
+  const { loadOfficialTournament } = await import("../scripts/phase2-load-official-tournament");
+  await loadOfficialTournament();
 
-  console.log("Database seeded successfully with PostgreSQL!");
+  console.log("Database seeded successfully with official tournament data!");
 }
 
 main()

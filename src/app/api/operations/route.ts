@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.user.findMany({
         where: {
-          userRoles: { some: { role: { name: "VOLUNTEER" } } },
+          userRoles: { some: { role: { name: { in: ["OPERATIONS_STAFF", "SPOC"] } } } },
           isActive: true,
         },
         select: {

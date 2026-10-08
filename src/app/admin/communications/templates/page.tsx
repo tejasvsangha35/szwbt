@@ -417,7 +417,7 @@ export default function TemplatesManagementPage() {
                         { label: "ALL", value: "ALL" },
                         { label: "PARTICIPANTS", value: "PARTICIPANTS" },
                         { label: "TEAM MANAGERS", value: "TEAM_MANAGERS" },
-                        { label: "VOLUNTEERS", value: "VOLUNTEERS" },
+                        { label: "SPOCS", value: "SPOCS" },
                         { label: "MATCH OFFICIALS", value: "MATCH_OFFICIALS" },
                         { label: "ORGANIZERS", value: "ORGANIZERS" },
                       ]}

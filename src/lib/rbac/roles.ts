@@ -17,7 +17,7 @@ export const ROLES = {
   OPERATIONS_STAFF: "OPERATIONS_STAFF",
   COMMUNICATIONS_STAFF: "COMMUNICATIONS_STAFF",
   REPORTS_STAFF: "REPORTS_STAFF",
-  VOLUNTEER: "VOLUNTEER",
+  SPOC: "SPOC",
   TEAM_MANAGER: "TEAM_MANAGER",
   PARTICIPANT: "PARTICIPANT",
   SUPPORT_STAFF: "SUPPORT_STAFF",
@@ -102,6 +102,7 @@ export const ROLE_DEFINITIONS: Record<RoleName, RoleDefinition> = {
       PERMISSIONS.ACCOMMODATION_READ,
       PERMISSIONS.ACCOMMODATION_ALLOCATE,
       PERMISSIONS.INSTITUTION_READ,
+      PERMISSIONS.TRANSPORT_READ,
     ],
   },
 
@@ -118,6 +119,7 @@ export const ROLE_DEFINITIONS: Record<RoleName, RoleDefinition> = {
       PERMISSIONS.TEAM_READ,
       PERMISSIONS.PAYMENT_READ,
       PERMISSIONS.PAYMENT_CREATE,
+      PERMISSIONS.TRANSPORT_READ,
     ],
   },
 
@@ -245,14 +247,19 @@ export const ROLE_DEFINITIONS: Record<RoleName, RoleDefinition> = {
     ],
   },
 
-  VOLUNTEER: {
-    name: ROLES.VOLUNTEER,
-    displayName: "Field Volunteer",
-    description: "Assigned on-ground tasks, shuttle passenger assistance, and public announcement access.",
+  SPOC: {
+    name: ROLES.SPOC,
+    displayName: "Student Point of Contact",
+    description: "A SPOC is assigned to four participating teams and serves as their primary coordination and communication point during the event. The SPOC has read-only access to the assigned teams' registration, transport, accommodation, match schedules, live match status, results, and contact information. The SPOC monitors the operational status of the assigned teams, assists them with event-related coordination, communicates important schedules and updates, and escalates transport, accommodation, registration, match, or emergency issues to the appropriate event authority.",
     defaultPermissions: [
-      PERMISSIONS.TRANSPORT_READ,
+      PERMISSIONS.SPOC_VIEW_OWN_TEAMS,
+      PERMISSIONS.SPOC_VIEW_REGISTRATION,
+      PERMISSIONS.SPOC_VIEW_TRANSPORT,
+      PERMISSIONS.SPOC_VIEW_ACCOMMODATION,
+      PERMISSIONS.SPOC_VIEW_MATCHES,
+      PERMISSIONS.SPOC_VIEW_LIVE_MATCH,
+      PERMISSIONS.SPOC_VIEW_CONTACTS,
       PERMISSIONS.ANNOUNCEMENT_READ,
-      PERMISSIONS.MATCH_READ,
     ],
   },
 

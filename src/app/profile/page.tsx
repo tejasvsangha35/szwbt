@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArcadeNav } from "@/components/navigation/ArcadeNav";
+import { formatTeamCode } from "@/lib/team/format";
 import {
   User as UserIcon,
   Shield,
@@ -729,7 +730,7 @@ export default function AccountProfilePage() {
                         {tournamentContext.team.name}
                       </div>
                       <div className="font-sans text-xs text-[#94a3b8] mt-0.5">
-                        Code: <span className="font-mono text-[#f5e6ca]">{tournamentContext.team.teamCode}</span> &bull; Manager: {tournamentContext.team.managerName || "Assigned Desk"}
+                        Team ID: <span className="font-mono text-[#f5e6ca]">{formatTeamCode(tournamentContext.team.teamCode)}</span> &bull; Manager: {tournamentContext.team.managerName || "Assigned Desk"}
                       </div>
                     </div>
                   ) : (
@@ -884,7 +885,7 @@ export default function AccountProfilePage() {
                       {tournamentContext.name}
                     </div>
                     <div className="font-sans text-xs text-[#94a3b8] mt-1">
-                      Team Code: <span className="font-mono text-[#18d8d0]">{tournamentContext.teamCode}</span> &bull; {tournamentContext.institution} ({tournamentContext.state})
+                      Team ID: <span className="font-mono text-[#18d8d0]">{formatTeamCode(tournamentContext.teamCode)}</span> &bull; {tournamentContext.institution} ({tournamentContext.state})
                     </div>
                     <div className="mt-2.5 pt-2 border-t border-[#1e293b] flex items-center justify-between text-xs">
                       <span className="text-[#94a3b8]">Verified Athletes:</span>

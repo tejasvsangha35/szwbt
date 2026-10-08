@@ -107,6 +107,14 @@ export async function seedRbacData() {
       roles: [ROLES.FINANCE_STAFF],
     },
     {
+      email: "umpire@szwbt2026.edu",
+      name: "Chief Umpire",
+      badge: "CHIEF UMPIRE",
+      targetUrl: "/official",
+      officialId: "official-chief",
+      roles: [ROLES.MATCH_OFFICIAL],
+    },
+    {
       email: "umpire1@szwbt2026.edu",
       name: "Court 01 Umpire",
       badge: "COURT 01 UMPIRE",
@@ -155,11 +163,18 @@ export async function seedRbacData() {
       roles: [ROLES.PARTICIPANT],
     },
     {
-      email: "volunteer@szwbt2026.edu",
-      name: "Arena Field Volunteer",
-      badge: "MOBILE FIELD",
-      targetUrl: "/volunteer",
-      roles: [ROLES.VOLUNTEER],
+      email: "spoc@szwbt2026.edu",
+      name: "Rahul Kumar (SPOC Coordinator)",
+      badge: "SPOC DESK",
+      targetUrl: "/spoc",
+      roles: [ROLES.SPOC],
+    },
+    {
+      email: "spoc2@szwbt2026.edu",
+      name: "Sneha Patil (SPOC Coordinator 2)",
+      badge: "SPOC DESK 2",
+      targetUrl: "/spoc",
+      roles: [ROLES.SPOC],
     },
     {
       email: "ops@szwbt2026.edu",

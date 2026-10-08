@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { UserContext } from "@/lib/rbac/service";
 import { logAuditEvent } from "@/lib/rbac/audit";
 import { generateTeamQr } from "@/lib/qr/service";
+import { generateNextStateTeamCode, getTeamCodeSearchCandidates } from "@/lib/team/format";
 
 /**
  * GET /api/registration/teams
@@ -19,10 +20,12 @@ export const GET = withAuth(
 
       const whereClause: any = {};
       if (query) {
+        const candidates = getTeamCodeSearchCandidates(query);
         whereClause.OR = [
           { institution: { contains: query, mode: "insensitive" } },
           { name: { contains: query, mode: "insensitive" } },
           { teamCode: { contains: query, mode: "insensitive" } },
+          { teamCode: { in: candidates } },
           { id: query },
         ];
       }
@@ -154,9 +157,8 @@ export const POST = withAuth(
         });
       }
 
-      // Generate canonical team code
-      const count = await prisma.team.count();
-      const teamCode = `TM-SZ-${String(count + 101).padStart(3, "0")}`;
+      // Generate canonical state-based team code (e.g. AP-01, KA-14)
+      const teamCode = await generateNextStateTeamCode(prisma, cleanState);
 
       const team = await prisma.team.create({
         data: {

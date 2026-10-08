@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/rbac/useAuth";
 import { CapturedDocument, generateCompiledPdf, downloadFile } from "@/lib/documentPdf";
 import { PortalQrCode } from "@/components/qr/PortalQrCode";
 import { compressUploadedFile } from "@/lib/fileCompressor";
+import { formatTeamCode } from "@/lib/team/format";
 import {
   UserCheck,
   FileText,
@@ -969,7 +970,7 @@ export default function RegistrationAdminDashboard() {
             </div>
           ) : registrations.length === 0 ? (
             <div className="p-12 text-center text-[#91A0AE] font-pixel text-xs">
-              NO REGISTRATIONS RECORDED YET. CLICK &quot;+ NEW REGISTRATION&quot; TO BEGIN.
+              NO REGISTRATION DATA AVAILABLE. CLICK &quot;+ NEW REGISTRATION&quot; TO BEGIN.
             </div>
           ) : (
             <>
@@ -997,7 +998,7 @@ export default function RegistrationAdminDashboard() {
                         </td>
                         <td className="py-3.5 px-4 font-mono">
                           <div className="text-[#18D8D0] font-semibold">{rec.teamName}</div>
-                          <div className="text-[10px] text-[#91A0AE]">{rec.teamCode}</div>
+                          <div className="text-[10px] text-[#91A0AE]">{formatTeamCode(rec.teamCode)}</div>
                         </td>
                         <td className="py-3.5 px-4">
                           <div>{rec.institution}</div>
@@ -1261,7 +1262,7 @@ export default function RegistrationAdminDashboard() {
                               type="text"
                               value={teamSearchQuery}
                               onChange={(e) => searchTeamsInStep1(e.target.value)}
-                              placeholder="Search by University Name, Team Name, Team ID (e.g. KLE Technological University)..."
+                              placeholder="Search by University Name, Team Name, State Code (e.g. AP - 01)..."
                               className="w-full pl-10 pr-4 py-3 bg-[#050914] border-2 border-[#18D8D0]/50 focus:border-[#FF5A16] text-[#F4E6CE] font-sans text-xs outline-none placeholder:text-[#91A0AE]/50"
                             />
                           </div>
@@ -1300,7 +1301,7 @@ export default function RegistrationAdminDashboard() {
                                     <div>
                                       <div className="flex items-center justify-between">
                                         <h4 className="font-bold text-[#F4E6CE] text-sm">{t.institution}</h4>
-                                        <span className="font-mono text-[10px] text-[#18D8D0]">{t.teamCode}</span>
+                                        <span className="font-mono text-[10px] text-[#18D8D0]">{formatTeamCode(t.teamCode)}</span>
                                       </div>
                                       <div className="text-xs text-[#FF5A16] font-pixel mt-1">{t.name}</div>
                                       <div className="text-[11px] text-[#91A0AE] mt-1">
@@ -1473,7 +1474,7 @@ export default function RegistrationAdminDashboard() {
                             {selectedTeam.institution} &bull; <span className="text-[#FF5A16]">{selectedTeam.name}</span>
                           </h3>
                           <div className="font-mono text-xs text-[#91A0AE] mt-0.5">
-                            Code: <span className="text-[#18D8D0]">{selectedTeam.teamCode}</span> &bull; State:{" "}
+                            Team ID: <span className="text-[#18D8D0]">{formatTeamCode(selectedTeam.teamCode)}</span> &bull; State:{" "}
                             <span>{selectedTeam.state}</span>
                             {selectedTeam.managerName && ` • Manager: ${selectedTeam.managerName}`}
                           </div>
@@ -2365,7 +2366,7 @@ export default function RegistrationAdminDashboard() {
                               <div>
                                 <div className="font-bold text-[#F4E6CE]">{t.institution}</div>
                                 <div className="font-mono text-[10px] text-[#91A0AE]">
-                                  {t.name} ({t.teamCode}) &bull; {t.memberCount} athletes
+                                  {t.name} ({formatTeamCode(t.teamCode)}) &bull; {t.memberCount} athletes
                                 </div>
                               </div>
                               <button
@@ -2548,7 +2549,7 @@ export default function RegistrationAdminDashboard() {
                   <div><span className="text-[#18D8D0]">Full Name:</span> <strong className="text-[#F4E6CE]">{selectedDossierRecord.name}</strong></div>
                   <div><span className="text-[#18D8D0]">Institution:</span> <span className="text-[#F4E6CE]">{selectedDossierRecord.institution}</span></div>
                   <div><span className="text-[#18D8D0]">State:</span> <span className="text-[#F4E6CE]">{selectedDossierRecord.state}</span></div>
-                  <div><span className="text-[#18D8D0]">Team:</span> <span className="text-[#F4E6CE]">{selectedDossierRecord.teamName} ({selectedDossierRecord.teamCode})</span></div>
+                  <div><span className="text-[#18D8D0]">Team:</span> <span className="text-[#F4E6CE]">{selectedDossierRecord.teamName} ({formatTeamCode(selectedDossierRecord.teamCode)})</span></div>
                   <div><span className="text-[#18D8D0]">Documents Status:</span> <span className="text-emerald-400 font-bold">{selectedDossierRecord.documentsStatus}</span></div>
                   <div><span className="text-[#18D8D0]">Payment Status:</span> <span className="text-emerald-400 font-bold">{selectedDossierRecord.paymentStatus}</span></div>
                   <div><span className="text-[#18D8D0]">Operator:</span> <span className="text-[#F4E6CE]">{selectedDossierRecord.operator}</span></div>

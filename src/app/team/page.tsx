@@ -42,6 +42,7 @@ import { PixelQR } from "@/components/team/PixelQR";
 import { MemberDetailModal, MemberDetailData } from "@/components/team/MemberDetailModal";
 import { TeamPortalShell, AuthorizedTeamOption } from "@/components/team/TeamPortalShell";
 import { useAuth } from "@/lib/rbac/useAuth";
+import { formatTeamCode } from "@/lib/team/format";
 
 // Types
 interface TeamOverviewData {
@@ -433,7 +434,7 @@ function TeamManagerPortalContent() {
             {/* Subtle pixel art background grid & coordinates */}
             <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#FF5A16_1px,transparent_1px)] [background-size:16px_16px]" />
             <div className="absolute top-2 right-3 font-mono text-[9px] text-pixel-muted select-none hidden sm:block">
-              SZ-CAMPUS::LOC KLE TECH [15.3647° N, 75.1240° E] &bull; TIE-ID: {team.teamCode}
+              SZ-CAMPUS::LOC KLE TECH [15.3647° N, 75.1240° E] &bull; TIE-ID: {formatTeamCode(team.teamCode)}
             </div>
 
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -443,7 +444,7 @@ function TeamManagerPortalContent() {
                     TEAM CONTROL CENTER
                   </span>
                   <span className="text-[10px] font-mono text-pixel-cyan bg-pixel-cyan/10 px-2 py-0.5 border border-pixel-cyan/30">
-                    ID: {team.teamCode}
+                    ID: {formatTeamCode(team.teamCode)}
                   </span>
                   <PixelBadge variant={team.status === "COMPLETED" ? "green" : "orange"}>
                     {team.status}
@@ -730,8 +731,8 @@ function TeamManagerPortalContent() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
               <div className="p-3 bg-pixel-black/60 border border-pixel-gray-800 space-y-1">
-                <span className="font-pixel text-[10px] text-pixel-muted uppercase block">TOURNAMENT CODE</span>
-                <span className="font-mono text-pixel-amber font-bold text-sm">{team.teamCode}</span>
+                <span className="font-pixel text-[10px] text-pixel-muted uppercase block">TEAM ID (STATE CODE)</span>
+                <span className="font-mono text-pixel-amber font-bold text-sm">{formatTeamCode(team.teamCode)}</span>
               </div>
               <div className="p-3 bg-pixel-black/60 border border-pixel-gray-800 space-y-1">
                 <span className="font-pixel text-[10px] text-pixel-muted uppercase block">AFFILIATED STATE</span>
@@ -1458,7 +1459,7 @@ function TeamManagerPortalContent() {
               </h3>
               <p className="text-xs text-pixel-gray-300 font-sans">{teamPass?.institution || team.institution}</p>
               <p className="font-mono text-xs text-pixel-amber font-bold pt-1">
-                CODE: {teamPass?.teamCode || team.teamCode}
+                CODE: {formatTeamCode(teamPass?.teamCode || team.teamCode)}
               </p>
             </div>
 

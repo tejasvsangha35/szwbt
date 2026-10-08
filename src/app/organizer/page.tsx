@@ -37,6 +37,7 @@ import {
   OrganizerHudIndicators,
 } from "@/components/organizer/OrganizerPortalShell";
 import { PixelBadge } from "@/components/pixel/PixelBadge";
+import { formatTeamCode } from "@/lib/team/format";
 
 function OrganizerDashboardContent() {
   const searchParams = useSearchParams();
@@ -725,7 +726,7 @@ function OrganizerDashboardContent() {
                     <tr key={team.id} className="hover:bg-pixel-black/40 transition-colors">
                       <td className="p-3">
                         <span className="font-pixel text-xs text-pixel-cream block">{team.name}</span>
-                        <span className="font-mono text-[10px] text-pixel-cyan">{team.teamCode}</span>
+                        <span className="font-mono text-[10px] text-pixel-cyan">{formatTeamCode(team.teamCode)}</span>
                       </td>
                       <td className="p-3 text-pixel-gray-300">{team.institution}</td>
                       <td className="p-3 text-pixel-gray-300">{team.state}</td>
@@ -1215,7 +1216,7 @@ function OrganizerDashboardContent() {
                       <option value="PARTICIPANTS">PARTICIPANTS ONLY</option>
                       <option value="TEAMS">TEAM MANAGERS</option>
                       <option value="OFFICIALS">MATCH OFFICIALS</option>
-                      <option value="VOLUNTEERS">VOLUNTEERS</option>
+                      <option value="SPOCS">SPOCs (STUDENT POINT OF CONTACT)</option>
                       <option value="ACCOMMODATION">HOSTEL DESK</option>
                       <option value="TRANSPORT">FLEET OPS</option>
                     </select>

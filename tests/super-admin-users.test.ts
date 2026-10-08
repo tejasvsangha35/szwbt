@@ -117,16 +117,16 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
     });
 
     // 5. Volunteer
-    volunteerUser = await prisma.user.findFirst({
-      where: { email: "volunteer@szwbt2026.edu" },
+    const spocUser = await prisma.user.findFirst({
+      where: { email: "spoc@szwbt2026.edu" },
     });
-    const volId = volunteerUser ? volunteerUser.id : "vol_mock_id";
-    const volEmail = volunteerUser ? volunteerUser.email : "volunteer@szwbt2026.edu";
+    const spocId = spocUser ? spocUser.id : "spoc_mock_id";
+    const spocEmail = spocUser ? spocUser.email : "spoc@szwbt2026.edu";
     volunteerToken = createSessionToken({
-      userId: volId,
-      email: volEmail,
-      roles: [ROLES.VOLUNTEER],
-      permissions: [PERMISSIONS.TRANSPORT_READ],
+      userId: spocId,
+      email: spocEmail,
+      roles: [ROLES.SPOC],
+      permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
     });
   });
 
@@ -212,7 +212,7 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
         phone: "+91 99887 76655",
         institution: "KLE Technological University",
         state: "Karnataka",
-        roles: [ROLES.VOLUNTEER, ROLES.OPERATIONS_STAFF],
+        roles: [ROLES.SPOC, ROLES.OPERATIONS_STAFF],
         status: "ACTIVE",
       }),
     });
@@ -222,7 +222,7 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
     const body = await res.json();
     assert.equal(body.success, true);
     assert.equal(body.user.email, testUserEmail);
-    assert(body.user.roles.includes(ROLES.VOLUNTEER));
+    assert(body.user.roles.includes(ROLES.SPOC));
     assert(body.user.roles.includes(ROLES.OPERATIONS_STAFF));
 
     testCreatedUserId = body.user.id;
@@ -290,7 +290,7 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        roles: [ROLES.VOLUNTEER], // Removed OPERATIONS_STAFF and SUPPORT_STAFF
+        roles: [ROLES.SPOC], // Removed OPERATIONS_STAFF and SUPPORT_STAFF
       }),
     });
 
@@ -301,7 +301,7 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
     const body = await res.json();
     assert.equal(body.success, true);
     assert.equal(body.user.roles.length, 1);
-    assert.equal(body.user.roles[0], ROLES.VOLUNTEER);
+    assert.equal(body.user.roles[0], ROLES.SPOC);
   });
 
   // Test 11: Last Super Admin cannot be removed
@@ -314,7 +314,7 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        roles: [ROLES.VOLUNTEER], // Stripping SUPER_ADMIN
+        roles: [ROLES.SPOC], // Stripping SUPER_ADMIN
       }),
     });
 
@@ -475,11 +475,11 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
     const disabledToken = createSessionToken({
       userId: testCreatedUserId,
       email: testUserEmail,
-      roles: [ROLES.VOLUNTEER],
-      permissions: [PERMISSIONS.TRANSPORT_READ],
+      roles: [ROLES.SPOC],
+      permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
     });
 
-    const req = new NextRequest("http://localhost:3000/api/volunteer", {
+    const req = new NextRequest("http://localhost:3000/api/spoc", {
       headers: { cookie: `szwbt_session=${disabledToken}` },
     });
 
@@ -490,9 +490,9 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
 
   // Test 19: Role changes affect authorization
   it("Test 19: Role changes immediately update route clearance evaluation", () => {
-    // User with only VOLUNTEER cannot access /admin/system/users
-    const checkVolunteer = checkRouteAuthorization("/admin/system/users", [PERMISSIONS.TRANSPORT_READ], [ROLES.VOLUNTEER]);
-    assert.equal(checkVolunteer.authorized, false, "Volunteer cannot access /admin/system/users");
+    // User with only SPOC cannot access /admin/system/users
+    const checkVolunteer = checkRouteAuthorization("/admin/system/users", [PERMISSIONS.SPOC_VIEW_OWN_TEAMS], [ROLES.SPOC]);
+    assert.equal(checkVolunteer.authorized, false, "SPOC cannot access /admin/system/users");
 
     // User granted SUPER_ADMIN can access /admin/system/users
     const checkSuperAdmin = checkRouteAuthorization("/admin/system/users", Object.values(PERMISSIONS), [ROLES.SUPER_ADMIN]);
@@ -520,8 +520,8 @@ describe("SUPER ADMIN USER MANAGEMENT TESTS (/admin/system/users)", () => {
   it("Test 21: Direct URL manipulation cannot bypass authorization for /admin/system/users", () => {
     const maliciousVolunteer = checkRouteAuthorization(
       "/admin/system/users",
-      [PERMISSIONS.TRANSPORT_READ],
-      [ROLES.VOLUNTEER]
+      [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
+      [ROLES.SPOC]
     );
     assert.equal(maliciousVolunteer.authorized, false);
 

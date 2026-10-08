@@ -107,7 +107,7 @@ describe("ACCOUNT, PROFILE & SECURITY TESTS (/profile & /api/me)", () => {
     const data = await res.json();
     assert.equal(data.success, true);
     assert.equal(data.profile.email, "player@szwbt2026.edu");
-    assert.equal(data.profile.name, "Ananya Sharma");
+    assert.equal(data.profile.name, playerUser.name);
     assert.equal(data.profile.accountStatus, "ACTIVE");
     assert(Array.isArray(data.roles), "Roles must be an array");
     assert(Array.isArray(data.authorizedModules), "Authorized modules must be an array");
@@ -347,7 +347,7 @@ describe("ACCOUNT, PROFILE & SECURITY TESTS (/profile & /api/me)", () => {
     const rolesToTest = [
       ROLES.PARTICIPANT,
       ROLES.TEAM_MANAGER,
-      ROLES.VOLUNTEER,
+      ROLES.SPOC,
       ROLES.MATCH_OFFICIAL,
       ROLES.COMMUNICATIONS_STAFF,
       ROLES.SUPER_ADMIN,

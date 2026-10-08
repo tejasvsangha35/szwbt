@@ -51,16 +51,16 @@ test("REPORTS & ANALYTICS CENTER TESTS (/admin/reports)", async (t) => {
     permissions: Object.values(PERMISSIONS),
   });
 
-  const volunteerUser = await prisma.user.findFirst({
-    where: { email: "volunteer@szwbt2026.edu" },
+  const spocUser = await prisma.user.findFirst({
+    where: { email: "spoc@szwbt2026.edu" },
   });
-  assert(volunteerUser, "Volunteer user must exist");
+  assert(spocUser, "SPOC user must exist");
 
-  const volunteerToken = createSessionToken({
-    userId: volunteerUser.id,
-    email: volunteerUser.email,
-    roles: [ROLES.VOLUNTEER],
-    permissions: [PERMISSIONS.TRANSPORT_READ],
+  const spocToken = createSessionToken({
+    userId: spocUser.id,
+    email: spocUser.email,
+    roles: [ROLES.SPOC],
+    permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
   });
 
   // Restricted organizer (has REPORTS_READ but NO FINANCE_REPORT and NO AUDIT_READ)
@@ -98,10 +98,10 @@ test("REPORTS & ANALYTICS CENTER TESTS (/admin/reports)", async (t) => {
     assert.equal(body.kpis.transport.hasPayment, false); // Zero transport payment confirmation
   });
 
-  // Test 2: Unauthorized Volunteer receives HTTP 403 Forbidden
-  await t.test("Test 2: Unauthorized Volunteer receives HTTP 403 Forbidden", async () => {
+  // Test 2: Unauthorized SPOC receives HTTP 403 Forbidden
+  await t.test("Test 2: Unauthorized SPOC receives HTTP 403 Forbidden", async () => {
     const req = new NextRequest("http://localhost:3000/api/reports/overview", {
-      headers: { cookie: `szwbt_session=${volunteerToken}` },
+      headers: { cookie: `szwbt_session=${spocToken}` },
     });
     const res = await getReportsOverview(req);
     assert.equal(res.status, 403);

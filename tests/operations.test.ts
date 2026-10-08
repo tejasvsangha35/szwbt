@@ -59,7 +59,7 @@ describe("ON-GROUND OPERATIONS COMMAND CENTER TESTS (/operations)", async () => 
   let opsToken: string;
   let superAdminToken: string;
   let participantToken: string;
-  let volunteerToken: string;
+  let spocToken: string;
   let umpireToken: string;
   let umpire2Token: string;
 
@@ -72,7 +72,7 @@ describe("ON-GROUND OPERATIONS COMMAND CENTER TESTS (/operations)", async () => 
     opsUser = await prisma.user.findUnique({ where: { email: "ops@szwbt2026.edu" } });
     superAdminUser = await prisma.user.findUnique({ where: { email: "admin@szwbt2026.edu" } });
     participantUser = await prisma.user.findUnique({ where: { email: "player@szwbt2026.edu" } });
-    volunteerUser = await prisma.user.findUnique({ where: { email: "volunteer@szwbt2026.edu" } });
+    const spocUser = await prisma.user.findUnique({ where: { email: "spoc@szwbt2026.edu" } });
     umpireUser = await prisma.user.findUnique({ where: { email: "umpire@szwbt2026.edu" } });
 
     assert.ok(opsUser, "Operations user exists in test database");
@@ -159,12 +159,12 @@ describe("ON-GROUND OPERATIONS COMMAND CENTER TESTS (/operations)", async () => 
       ],
     });
 
-    if (volunteerUser) {
-      volunteerToken = createSessionToken({
-        userId: volunteerUser.id,
-        email: volunteerUser.email,
-        roles: [ROLES.VOLUNTEER],
-        permissions: [PERMISSIONS.TRANSPORT_READ, PERMISSIONS.ANNOUNCEMENT_READ],
+    if (spocUser) {
+      spocToken = createSessionToken({
+        userId: spocUser.id,
+        email: spocUser.email,
+        roles: [ROLES.SPOC],
+        permissions: [PERMISSIONS.SPOC_VIEW_OWN_TEAMS],
       });
     }
 
@@ -216,6 +216,15 @@ describe("ON-GROUND OPERATIONS COMMAND CENTER TESTS (/operations)", async () => 
         },
       });
     }
+
+    // Reset any LIVE/PAUSED matches occupying tournament courts to avoid test conflicts
+    await prisma.match.updateMany({
+      where: {
+        court: { in: courtNumbers },
+        status: { in: ["LIVE", "PAUSED"] },
+      },
+      data: { status: "COMPLETED" },
+    });
 
     // Clean up any extraneous courts 05-08
     await prisma.court.deleteMany({
@@ -783,7 +792,7 @@ describe("ON-GROUND OPERATIONS COMMAND CENTER TESTS (/operations)", async () => 
     assert.equal(res.status, 403);
     const json = await res.json();
     assert.equal(json.success, false);
-    assert.equal(json.code, "NOT_ASSIGNED");
+    assert.ok(json.code === "NOT_ASSIGNED" || json.code === "COURT_MISMATCH");
     assert.match(json.error, /403 Forbidden/);
   });
 

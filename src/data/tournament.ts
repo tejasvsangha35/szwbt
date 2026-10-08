@@ -13,16 +13,16 @@ export interface TournamentInfo {
 }
 
 export const TOURNAMENT_DATA: TournamentInfo = {
-  name: "SOUTH ZONE WOMEN'S BADMINTON CHAMPIONSHIP 2026",
-  edition: "2026 EDITION",
+  name: "AIU South Zone Inter-University Women’s Badminton Tournament 2026-27",
+  edition: "2026-27 EDITION",
   tagline: "THE SOUTH CONVERGES. THE COURT DECIDES.",
-  dates: "OCTOBER 18 – 21, 2026",
-  venue: "Dr. Prabhakar Kore Sports Arena , K L E Tech University - Hubballi",
-  organizer: "SOUTH ZONE WOMEN'S BADMINTON FEDERATION",
-  status: "REGISTRATION OPEN",
-  totalCategories: "5 CATEGORIES",
-  totalParticipants: "1000+ PARTICIPANTS",
-  totalMatches: "128 MATCHES",
+  dates: "18 October 2026 to 21 October 2026",
+  venue: "Dr. Prabhakar Sports Arena, KLE Technological University (Deemed to be University), Hubballi, Karnataka",
+  organizer: "Association of Indian Universities (AIU) & KLE Technological University",
+  status: "OFFICIAL FIXTURES PUBLISHED",
+  totalCategories: "1 CATEGORY",
+  totalParticipants: "102 UNIVERSITIES",
+  totalMatches: "102 TIES",
   activeCourts: "4 COURTS",
 };
 

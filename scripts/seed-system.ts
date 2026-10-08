@@ -6,21 +6,21 @@ async function main() {
   const defaultSettings = [
     {
       key: "tournament.name",
-      value: "South Zone Women's Badminton Championship 2026",
+      value: "AIU South Zone Inter-University Women’s Badminton Tournament 2026-27",
       category: "TOURNAMENT",
       description: "Official championship tournament title",
       isPublic: true,
     },
     {
       key: "tournament.dates",
-      value: "October 18 - 21, 2026",
+      value: "18 October 2026 to 21 October 2026",
       category: "TOURNAMENT",
       description: "Official tournament dates",
       isPublic: true,
     },
     {
       key: "tournament.venue",
-      value: "Dr. Prabhakar Kore Indoor Stadium, KLE Technological University, Hubballi, Karnataka",
+      value: "Dr. Prabhakar Sports Arena, KLE Technological University (Deemed to be University), Hubballi, Karnataka",
       category: "TOURNAMENT",
       description: "Host campus and arena location",
       isPublic: true,

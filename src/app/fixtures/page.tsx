@@ -21,6 +21,7 @@ import {
   X,
   MapPin,
 } from "lucide-react";
+import { formatTeamCode } from "@/lib/team/format";
 
 export default function PublicFixturesPage() {
   const [activePool, setActivePool] = useState<string>("A");
@@ -96,8 +97,25 @@ export default function PublicFixturesPage() {
       (s: any) =>
         (activePool === "ALL" || activePool === "CHAMPIONSHIP" ? true : s.pool === activePool) &&
         s.teamId &&
-        s.slot <= 25
+        s.slot <= (s.pool === "A" || s.pool === "C" ? 26 : 25)
     )
+    .filter((s: any) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const rawCode = (s.teamCode || "").toLowerCase();
+      const fmtCode = formatTeamCode(s.teamCode).toLowerCase();
+      const cleanCode = rawCode.replace(/[-\s]/g, "");
+      const cleanQ = q.replace(/[-\s]/g, "");
+      const name = (s.teamName || "").toLowerCase();
+      const state = (s.state || "").toLowerCase();
+      return (
+        rawCode.includes(q) ||
+        fmtCode.includes(q) ||
+        cleanCode.includes(cleanQ) ||
+        name.includes(q) ||
+        state.includes(q)
+      );
+    })
     .sort((a: any, b: any) => a.pool.localeCompare(b.pool) || a.slot - b.slot);
 
   function isTBD(val: string | null | undefined) {
@@ -121,17 +139,17 @@ export default function PublicFixturesPage() {
                   <span>OFFICIAL TOURNAMENT BRACKET</span>
                 </span>
                 <span className="font-pixel text-[11px] text-[#18D8D0] uppercase tracking-wider hidden sm:block">
-                  4 POOLS &bull; 100 TEAMS &bull; 100 MATCHES
+                  4 POOLS &bull; 102 TEAMS &bull; 102 TIES
                 </span>
               </div>
               <h1 className="font-display text-3xl sm:text-5xl text-[#F4E6CE] font-black uppercase tracking-tight leading-none">
                 CHAMPIONSHIP <span className="text-[#FF5A16]">FIXTURES</span>
               </h1>
               <p className="font-pixel text-xs text-[#18D8D0] mt-2 uppercase tracking-wider">
-                SOUTH ZONE INTER-UNIVERSITY WOMEN&apos;S BADMINTON TOURNAMENT 2026
+                AIU SOUTH ZONE INTER-UNIVERSITY WOMEN&apos;S BADMINTON TOURNAMENT 2026-27
               </p>
               <p className="text-xs sm:text-sm text-[#91A0AE] mt-2 leading-relaxed max-w-xl">
-                Live fixture graph for all 100 championship matches across 4 pools. Results update every 15 seconds.
+                Official fixture graph for all 102 championship ties across 4 pools. Results update every 15 seconds.
               </p>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -566,18 +584,17 @@ export default function PublicFixturesPage() {
                     <thead>
                       <tr className="border-b border-[#1b253b] bg-[#050914] font-pixel text-[10px] text-[#00F0FF] uppercase tracking-wider">
                         <th className="py-3 px-3">POOL</th>
-                        <th className="py-3 px-3">SLOT #</th>
-                        <th className="py-3 px-3">TEAM #</th>
+                        <th className="py-3 px-3">SLOT</th>
+                        <th className="py-3 px-3">TEAM ID (STATE CODE)</th>
                         <th className="py-3 px-3">OFFICIAL UNIVERSITY NAME</th>
                         <th className="py-3 px-3">STATE</th>
-                        <th className="py-3 px-3">TEAM CODE</th>
                         <th className="py-3 px-3">SEED / BYE STATUS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1b253b]/60 text-xs">
                       {rosterSlots.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-12 text-center text-slate-400 font-pixel text-xs">
+                          <td colSpan={6} className="py-12 text-center text-slate-400 font-pixel text-xs">
                             NO TEAMS ASSIGNED YET. DRAW IN PROGRESS.
                           </td>
                         </tr>
@@ -587,13 +604,16 @@ export default function PublicFixturesPage() {
                             <td className="py-3 px-3 whitespace-nowrap">
                               <span className="font-pixel text-xs font-bold text-[#FF5A16] bg-[#050914] px-2 py-0.5 border border-[#FF5A16]/30 rounded">POOL {slot.pool}</span>
                             </td>
-                            <td className="py-3 px-3 font-mono text-xs font-bold text-[#00F0FF]">Slot #{slot.slot}</td>
-                            <td className="py-3 px-3 font-mono text-xs text-[#FFD700] font-bold">#{slot.teamNumber || "-"}</td>
+                            <td className="py-3 px-3 font-mono text-xs font-bold text-[#91A0AE]">Slot #{slot.slot}</td>
+                            <td className="py-3 px-3">
+                              <span className="px-2.5 py-1 bg-[#00F0FF]/15 border border-[#00F0FF]/35 rounded font-mono font-bold text-xs text-[#00F0FF]">
+                                {formatTeamCode(slot.teamCode)}
+                              </span>
+                            </td>
                             <td className="py-3 px-3 font-semibold text-white">{slot.teamName || "Unassigned"}</td>
                             <td className="py-3 px-3 text-slate-300">
                               <span className="px-2 py-0.5 bg-[#050914] border border-white/10 rounded text-[11px]">{slot.state || "-"}</span>
                             </td>
-                            <td className="py-3 px-3 font-mono text-[11px] text-[#00F0FF]">{slot.teamCode || "-"}</td>
                             <td className="py-3 px-3">
                               {slot.slot === 1 ? (
                                 <span className="px-2 py-0.5 bg-[#FFD700] text-black font-pixel text-[9px] font-bold rounded">SEED 1 &bull; POOL FINAL BYE</span>

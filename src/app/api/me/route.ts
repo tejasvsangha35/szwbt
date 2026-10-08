@@ -92,8 +92,8 @@ function deriveAuthorizedModules(roles: string[], permissions: string[]): string
   if (roles.includes("PARTICIPANT")) {
     modules.add("Athlete Personal Portal");
   }
-  if (roles.includes("VOLUNTEER")) {
-    modules.add("Volunteer Field Operations");
+  if (roles.includes("SPOC")) {
+    modules.add("SPOC Contingent Hub");
   }
   if (roles.includes("SUPPORT_STAFF")) {
     modules.add("Participant Support Desk");

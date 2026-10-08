@@ -633,7 +633,7 @@ export default function SupportDeskPage() {
                 </p>
                 <p className="text-xs text-pixel-muted max-w-2xl leading-relaxed pt-1">
                   Coordinating inquiries, credential discrepancies, accessibility accommodations, and rapid
-                  cross-module escalations for athletes, managers, officials, and field volunteers.
+                  cross-module escalations for athletes, managers, officials, and SPOC coordinators.
                 </p>
               </div>
 
@@ -1248,7 +1248,7 @@ export default function SupportDeskPage() {
                   >
                     <option value="PARTICIPANT">ATHLETE / PARTICIPANT</option>
                     <option value="TEAM_MANAGER">TEAM MANAGER</option>
-                    <option value="VOLUNTEER">VOLUNTEER</option>
+                    <option value="SPOC">SPOC (STUDENT POINT OF CONTACT)</option>
                     <option value="OFFICIAL">MATCH OFFICIAL</option>
                     <option value="STAFF">TOURNAMENT STAFF</option>
                   </select>

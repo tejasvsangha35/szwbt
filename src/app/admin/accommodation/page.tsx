@@ -21,6 +21,7 @@ import {
   Building2, Layers, DollarSign, Filter, Sparkles, Loader2, Utensils,
   Pencil, Table, LayoutGrid
 } from "lucide-react";
+import { formatTeamCode } from "@/lib/team/format";
 
 interface TeamResolvedData {
   id: string;
@@ -1099,7 +1100,7 @@ function AccommodationAdminContent() {
                     ACTIVE SCANNED TEAM
                   </span>
                   <span className="font-mono text-xs text-slate-500">
-                    {resolvedTeam.teamCode}
+                    {formatTeamCode(resolvedTeam.teamCode)}
                   </span>
                 </div>
                 <h2 className="font-pixel text-lg sm:text-xl text-slate-900 font-bold mt-1">
@@ -1505,7 +1506,7 @@ function AccommodationAdminContent() {
                     type="text"
                     value={qrTokenInput}
                     onChange={(e) => setQrTokenInput(e.target.value)}
-                    placeholder="e.g. SZBC26-BLR-01 or TEAM-BLR-001"
+                    placeholder="e.g. AP - 01 or KA - 14"
                     className="w-full bg-slate-50 text-slate-900 border border-slate-300 focus:border-[#FF5A16] px-3 py-2 rounded-lg font-mono text-xs outline-none transition-colors"
                   />
                 </div>

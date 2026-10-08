@@ -103,62 +103,8 @@ export async function seedAccommodationData() {
     }
   }
 
-  // Link any existing participants to test allocations
-  const participant1 = await prisma.participant.findFirst({
-    where: { gender: "FEMALE" },
-  });
-
-  const team1 = await prisma.team.findFirst();
-
-  if (participant1) {
-    const targetRoom = await prisma.room.findFirst({
-      where: { hostelId: "SHALMALA", roomNumber: "S-101" },
-      include: { beds: true },
-    });
-
-    if (targetRoom && targetRoom.beds.length >= 2) {
-      const bed1 = targetRoom.beds[0];
-      const bed2 = targetRoom.beds[1];
-
-      // Set Bed 1 OCCUPIED with Participant 1
-      await prisma.bed.update({
-        where: { id: bed1.id },
-        data: { status: "OCCUPIED" },
-      });
-
-      // Clear any existing allocation for this bed
-      await prisma.accommodationAllocation.deleteMany({
-        where: { bedId: bed1.id },
-      });
-
-      await prisma.accommodationAllocation.create({
-        data: {
-          bedId: bed1.id,
-          participantId: participant1.id,
-          teamId: team1?.id || null,
-          allocatedBy: "hostel@szwbt2026.edu",
-          status: "ACTIVE",
-        },
-      });
-
-      // Update participant hostel & room
-      await prisma.participant.update({
-        where: { id: participant1.id },
-        data: {
-          hostel: "Shalmala Hostel",
-          room: "S-101 (BED 01)",
-        },
-      });
-
-      // Set Bed 2 as RESERVED
-      await prisma.bed.update({
-        where: { id: bed2.id },
-        data: { status: "RESERVED" },
-      });
-    }
-  }
-
-  console.log("=== ACCOMMODATION SEED COMPLETED ===");
+  // All beds remain AVAILABLE with zero dummy allocations
+  console.log("=== ACCOMMODATION SEED COMPLETED (ALL BEDS AVAILABLE, ZERO DUMMY ALLOCATIONS) ===");
 }
 
 if (require.main === module) {

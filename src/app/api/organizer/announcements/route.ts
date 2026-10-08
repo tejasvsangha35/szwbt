@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validAudiences = ["ALL", "PARTICIPANTS", "TEAMS", "OFFICIALS", "VOLUNTEERS", "ACCOMMODATION", "TRANSPORT"];
+    const validAudiences = ["ALL", "PARTICIPANTS", "TEAMS", "OFFICIALS", "SPOCS", "ACCOMMODATION", "TRANSPORT"];
     const audience = validAudiences.includes(targetAudience) ? targetAudience : "ALL";
 
     const announcement = await prisma.announcement.create({
