@@ -600,7 +600,7 @@ async function syncAllFormResponses() {
           state: sub.state,
           category: "Institution Teams",
           gender: "FEMALE",
-          status: "APPROVED",
+          status: "PENDING",
           phone: pIdx === 0 ? sub.captainPhone : sub.managerPhone,
           email: `${pName.toLowerCase().replace(/[^a-z0-9]/g, "")}@varsity.edu`,
           qrCode: `sz26_qr_part_${pIdStr}`,
@@ -618,49 +618,8 @@ async function syncAllFormResponses() {
         },
       });
 
-      // Create Verified Documents (Student ID, Bonafide, Medical/Eligibility)
-      await prisma.document.deleteMany({ where: { participantId: participant.id } });
-      await prisma.document.createMany({
-        data: [
-          {
-            participantId: participant.id,
-            type: "UNIVERSITY_ID",
-            fileName: `${pName.replace(/\s+/g, "_")}_University_ID.pdf`,
-            filePath: `/uploads/documents/${participant.id}/id.pdf`,
-            status: "VERIFIED",
-            capturedBy: "registration@szwbt2026.edu",
-          },
-          {
-            participantId: participant.id,
-            type: "SSLC",
-            fileName: `${pName.replace(/\s+/g, "_")}_SSLC_AgeProof.pdf`,
-            filePath: `/uploads/documents/${participant.id}/age.pdf`,
-            status: "VERIFIED",
-            capturedBy: "registration@szwbt2026.edu",
-          },
-          {
-            participantId: participant.id,
-            type: "PUC",
-            fileName: `${pName.replace(/\s+/g, "_")}_Eligibility_Form.pdf`,
-            filePath: `/uploads/documents/${participant.id}/eligibility.pdf`,
-            status: "VERIFIED",
-            capturedBy: "registration@szwbt2026.edu",
-          },
-        ],
-      });
-
-      // Participant QR Pass
-      await prisma.qrPass.upsert({
-        where: { token: `sz26_qr_part_${participant.id}` },
-        update: { status: "ACTIVE" },
-        create: {
-          token: `sz26_qr_part_${participant.id}`,
-          qrType: "PARTICIPANT",
-          participantId: participant.id,
-          status: "ACTIVE",
-          createdBy: "registration@szwbt2026.edu",
-        },
-      });
+      // Documents must be physically uploaded by the team/desk.
+      // Do not auto-generate mock documents.
 
       // Food Package Assignment on 17.10.2026 if requested
       if (sub.playerFood.toLowerCase().includes("yes") || sub.playerFood.toLowerCase().includes("break") || sub.playerFood.toLowerCase().includes("lunch")) {

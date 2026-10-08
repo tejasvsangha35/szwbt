@@ -3766,7 +3766,7 @@ export default function RegistrationDeskPage() {
                                 {liveM.hostel} ({liveM.room})
                               </span>
                             ) : (
-                              <span className="text-slate-400 italic">None</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-rajdhani text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300"><Clock className="w-2.5 h-2.5 text-amber-600" /> PENDING ALLOTMENT</span>
                             )}
                           </td>
                           <td className="p-3">
